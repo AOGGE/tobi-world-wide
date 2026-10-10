@@ -1,0 +1,9 @@
+{
+  "name": "tobi-world-wide-educational-consult",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Tobi World Wide Educational Consult - site and backend",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" }
+}
