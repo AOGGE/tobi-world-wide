@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: tobi-educational-consult
+    runtime: node
+    plan: starter
+    buildCommand: echo "no build needed"
+    startCommand: node server.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATA_DIR
+        value: /var/data
+      - key: COOKIE_SECURE
+        value: "1"
+      - key: ADMIN_PASSWORD
+        sync: false
+    disk:
+      name: data
+      mountPath: /var/data
+      sizeGB: 1
