@@ -1,0 +1,17 @@
+{
+  "name": "tobi-world-wide",
+  "version": "1.0.0",
+  "description": "Tobi World Wide Educational Consult - student news portal and API",
+  "main": "server.js",
+  "private": true,
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "mssql": "^11.0.1"
+  }
+}
