@@ -24,6 +24,13 @@ const DEFAULT_POSTS = [
   { id: 1, t: 'Scholarships', h: 'Write a scholarship essay that stands out', x: 'A clear structure for a short personal statement you can adapt to any application.', r: 6, d: 'Writing guide', body: '<p>Use one real experience, explain your goal, give evidence, and finish with the impact you hope to make.</p>', school: 'All schools', date: '2026-10-03' }
 ];
 const ANTHROPIC_URL = process.env.ANTHROPIC_API_URL || 'https://api.anthropic.com/v1/messages';
+
+function anthropicHeaders(apiKey) {
+  const headers = { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' };
+  // Keys that are not tied to one workspace (sk-ant-usr-...) must say which workspace to use.
+  if (process.env.ANTHROPIC_WORKSPACE_ID) headers['anthropic-workspace-id'] = process.env.ANTHROPIC_WORKSPACE_ID;
+  return headers;
+}
 const NUC_PAGES = {
   Federal: 'https://www.nuc.edu.ng/wp-json/wp/v2/pages/165',
   State: 'https://www.nuc.edu.ng/wp-json/wp/v2/pages/163',
@@ -396,7 +403,7 @@ async function discoverNews() {
   if (!apiKey) throw new Error('Set ANTHROPIC_API_KEY to enable verified news search');
   const response = await fetch(ANTHROPIC_URL, {
     method: 'POST',
-    headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+    headers: anthropicHeaders(apiKey),
     body: JSON.stringify({
       model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514',
       max_tokens: 2200,
@@ -574,7 +581,7 @@ async function askClaude(system, messages, maxTokens, timeoutMs) {
     try {
       const response = await fetch(ANTHROPIC_URL, {
         method: 'POST',
-        headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+        headers: anthropicHeaders(apiKey),
         body: JSON.stringify({ model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514', max_tokens: maxTokens, system, messages }),
         signal: AbortSignal.timeout(timeoutMs)
       });
