@@ -461,7 +461,7 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
       <div class="msg err" id="rMsg" role="alert"></div>
       <button class="switch" type="button" id="toLogin">Already registered? Log in</button>
       <button class="switch" type="button" id="toWelcome" style="font-weight:500;color:var(--muted)">← Back to welcome</button>
-      <p class="note-small">Accounts are saved on this device only. Do not reuse an important password.</p>
+      <p class="note-small" id="regNote">Accounts are saved on this device only. Do not reuse an important password.</p>
     </form>
   </div>
 </section>
@@ -1745,6 +1745,7 @@ var _dg=drawGuide;drawGuide=function(){_dg();if(APP.user&&APP.user.aiOutline&&!$
     try{var probe=apiUrl('/api/health');var hc=await fetch(probe);var hj=hc.ok?await hc.json():null;if(hj&&hj.ok===true){Store=ApiStore}}catch(e){}
   }
   var st=await Store.init();
+  if(Store===ApiStore){var rn=$('#regNote');if(rn)rn.textContent='Your account is saved securely on our server, so you can log in from any device. Do not reuse an important password.'}
   var iv=new URLSearchParams(location.search).get('invite');
   APP.extras=st.extras||[];APP.tutor=!!st.tutor;buildSchools();
   if(st.error)say($('#lMsg'),st.error);
