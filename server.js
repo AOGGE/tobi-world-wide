@@ -4,12 +4,13 @@ const path = require('path');
 const crypto = require('crypto');
 const { URL } = require('url');
 const dotenv = require('dotenv');
-const sql = require('mssql');
+const { Pool, types } = require('pg');
 
 dotenv.config({ path: path.join(__dirname, '.env') });
 
-const PORT = Number(process.env.TWW_PORT || 5001);
-const HOST = process.env.TWW_HOST || '0.0.0.0';
+// Hosting platforms (Render, etc.) provide PORT and need the server on 0.0.0.0.
+const PORT = Number(process.env.PORT || process.env.TWW_PORT || 5001);
+const HOST = process.env.TWW_HOST || (process.env.PORT ? '0.0.0.0' : '127.0.0.1');
 const FRONTEND_FILE = process.env.TWW_FRONTEND_FILE || path.join(__dirname, 'index.html');
 const ADMIN_FILE = process.env.TWW_ADMIN_FILE || path.join(__dirname, 'admin.html');
 const ALLOWED_ORIGIN = process.env.TWW_ALLOWED_ORIGIN || `http://localhost:${PORT}`;
@@ -140,74 +141,135 @@ async function getPortalUser(req) {
   return rows[0] || null;
 }
 
-let poolPromise;
+let pool;
+let readyPromise;
 
-function databaseConfig() {
-  if (process.env.SQL_CONNECTION_STRING) return process.env.SQL_CONNECTION_STRING;
-  const { SQL_SERVER: server, SQL_DATABASE: database } = process.env;
-  if (!server || !database) {
-    throw new Error('Set SQL_SERVER and SQL_DATABASE before using database-backed routes');
-  }
+// Postgres lowercases column names; map them back so r.FullName etc. keep working.
+const COLUMN_NAMES = ('Id FullName Email IsAdmin UniversityId University Username DisplayName PasswordHash Name Category State '
+  + 'SourceUrl SourceUpdatedAt Topic Headline Summary BodyHtml ReadingMinutes School PublishedAt SourceHost IsOfficialSource '
+  + 'CreatedAt Title Body Status SubmittedAt Author AutoPublishOfficial Total LastSync SenderId RecipientId SentAt UsedBy '
+  + 'SourceTitle Connected UserType UserId').split(' ');
+const CANONICAL = new Map(COLUMN_NAMES.map(name => [name.toLowerCase(), name]));
+types.setTypeParser(20, value => Number(value)); // BIGINT / COUNT(*) as numbers
 
-  const config = {
-    server,
-    database,
-    options: { encrypt: true, trustServerCertificate: false },
-    pool: { max: 10, min: 0, idleTimeoutMillis: 30000 }
-  };
-  const auth = (process.env.SQL_AUTH || 'password').toLowerCase();
-  if (auth === 'default' || auth === 'entra-default') {
-    config.authentication = { type: 'azure-active-directory-default', options: {} };
-  } else if (auth === 'managed-identity' || auth === 'entra-msi') {
-    config.authentication = {
-      type: 'azure-active-directory-msi-app-service',
-      options: process.env.SQL_CLIENT_ID ? { clientId: process.env.SQL_CLIENT_ID } : {}
-    };
-  } else {
-    if (!process.env.SQL_USER || !process.env.SQL_PASSWORD) {
-      throw new Error('Set SQL_USER and SQL_PASSWORD when SQL_AUTH=password');
+function restoreCase(row) {
+  for (const key of Object.keys(row)) {
+    const canonical = CANONICAL.get(key);
+    if (canonical && canonical !== key && !(canonical in row)) {
+      Object.defineProperty(row, canonical, { value: row[key], enumerable: false });
     }
-    config.user = process.env.SQL_USER;
-    config.password = process.env.SQL_PASSWORD;
   }
-  return config;
+  return row;
+}
+
+// Translates the small T-SQL dialect used in the route code into PostgreSQL.
+function toPostgres(query) {
+  let q = query
+    .replace(/\bdbo\./g, '')
+    .replace(/\bN'/g, "'")
+    .replace(/DATEADD\(day,\s*(\d+),\s*SYSUTCDATETIME\(\)\)/g, "(now() + interval '$1 days')")
+    .replace(/SYSUTCDATETIME\(\)/g, 'now()')
+    .replace(/(^|;\s*)DELETE\s+(?!FROM\b)/g, '$1DELETE FROM ')
+    .replace(/^(\s*)INSERT\s+(?!INTO\b)/i, '$1INSERT INTO ');
+  const output = q.match(/\sOUTPUT\s+((?:INSERTED\.\w+(?:,\s*)?)+)/i);
+  if (output) {
+    q = q.replace(output[0], '');
+    q += ' RETURNING ' + output[1].replace(/INSERTED\./gi, '');
+  }
+  let n = 0;
+  return q.replace(/\?/g, () => '$' + (++n));
+}
+
+function databaseUrl() {
+  const raw = process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.SQL_CONNECTION_STRING;
+  if (!raw) throw new Error('Set DATABASE_URL to your PostgreSQL connection string before using database-backed routes');
+  return raw;
+}
+
+function poolConfig() {
+  const url = new URL(databaseUrl());
+  const sslmode = url.searchParams.get('sslmode');
+  url.searchParams.delete('sslmode');
+  const local = ['localhost', '127.0.0.1', '::1'].includes(url.hostname);
+  const useSsl = process.env.DATABASE_SSL ? process.env.DATABASE_SSL !== 'false' : !(local || sslmode === 'disable');
+  return {
+    connectionString: url.toString(),
+    ssl: useSsl ? { rejectUnauthorized: false } : false,
+    max: 10,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 15000
+  };
+}
+
+async function seedAdmin() {
+  const username = String(process.env.ADMIN_USERNAME || '').trim();
+  const password = String(process.env.ADMIN_PASSWORD || '');
+  if (!username || password.length < 8) return;
+  const existing = await pool.query('SELECT 1 FROM PortalAdmins WHERE Username = $1', [username]);
+  if (existing.rowCount) return;
+  await pool.query(
+    'INSERT INTO PortalAdmins (Username, DisplayName, Email, PasswordHash) VALUES ($1, $2, $3, $4)',
+    [username, process.env.ADMIN_NAME || username, process.env.ADMIN_EMAIL || null, hashPassword(password)]
+  );
+  console.log('Created portal admin:', username);
 }
 
 function connectDatabase() {
-  if (!poolPromise) {
-    const config = databaseConfig();
-    const poolConfig = typeof config === 'string' ? sql.ConnectionPool.parseConnectionString(config) : config;
-    const pool = new sql.ConnectionPool(poolConfig);
-    pool.on('error', error => console.error('SQL connection pool error:', error.code || 'unknown'));
-    poolPromise = pool.connect().catch(error => {
-      poolPromise = undefined;
+  if (!readyPromise) {
+    const config = poolConfig();
+    pool = new Pool(config);
+    pool.on('error', error => console.error('Postgres pool error:', error.code || error.message));
+    readyPromise = (async () => {
+      await pool.query(fs.readFileSync(path.join(__dirname, 'api', 'schema.sql'), 'utf8'));
+      await seedAdmin();
+      return pool;
+    })().catch(error => {
+      readyPromise = undefined;
+      const failed = pool;
+      pool = undefined;
+      if (failed) failed.end().catch(() => {});
       throw error;
     });
   }
-  return poolPromise;
+  return readyPromise;
 }
 
 async function queryDatabase(query, params = []) {
-  const pool = await connectDatabase();
-  const request = pool.request();
-  let index = 0;
-  for (const value of params) {
-    request.input(`twwParam${index}`, value);
-    index += 1;
-  }
-  let parameterIndex = 0;
-  const statement = query.replace(/\?/g, () => `@twwParam${parameterIndex++}`);
-  return request.query(statement);
+  const db = await connectDatabase();
+  const result = await db.query(toPostgres(query), params);
+  result.rows.forEach(restoreCase);
+  return result;
 }
 
 async function dbRows(query, params = []) {
-  const result = await queryDatabase(query, params);
-  return result.recordset || [];
+  return (await queryDatabase(query, params)).rows;
 }
 
 async function dbWrite(query, params = []) {
   const result = await queryDatabase(query, params);
-  return result.recordset?.[0] ?? result.rowsAffected ?? [];
+  return result.rows[0] ?? result.rowCount ?? 0;
+}
+
+// Runs fn(q) inside a transaction. q(query, params) accepts the same ? syntax as dbRows.
+async function withTransaction(fn) {
+  const db = await connectDatabase();
+  const client = await db.connect();
+  const q = async (query, params = []) => {
+    const result = await client.query(toPostgres(query), params);
+    result.rows.forEach(restoreCase);
+    return result;
+  };
+  try {
+    await client.query('BEGIN');
+    const value = await fn(q);
+    await client.query('COMMIT');
+    return value;
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 async function serveStaticFile(res, filePath) {
@@ -417,7 +479,7 @@ function universityRows(markup) {
 let universitySyncPromise;
 
 async function syncUniversities(force) {
-  const stats = await dbRows('SELECT COUNT(*) AS Total, MAX(SourceUpdatedAt) AS LastSync FROM dbo.Universities WHERE IsActive = 1');
+  const stats = await dbRows('SELECT COUNT(*) AS Total, MAX(SourceUpdatedAt) AS LastSync FROM dbo.Universities WHERE IsActive = true');
   const current = Number(stats[0]?.Total || 0);
   const lastSync = stats[0]?.LastSync ? new Date(stats[0].LastSync).getTime() : 0;
   if (current >= 300 && !force && lastSync >= Date.now() - 7 * 24 * 60 * 60 * 1000) return current;
@@ -441,25 +503,16 @@ async function syncUniversities(force) {
     throw new Error(`NUC directory sync returned only ${imported.length} rows; refusing partial replacement`);
   }
 
-  const transaction = new sql.Transaction(await connectDatabase());
-  await transaction.begin();
-  try {
-    await new sql.Request(transaction).query('UPDATE dbo.Universities SET IsActive = 0');
+  await withTransaction(async q => {
+    await q('UPDATE dbo.Universities SET IsActive = false');
     for (const university of imported) {
-      const request = new sql.Request(transaction);
-      request.input('name', university.name).input('category', university.category)
-        .input('sourceUrl', university.sourceUrl).input('updatedAt', new Date());
-      await request.query(
-        'IF EXISTS (SELECT 1 FROM dbo.Universities WITH (UPDLOCK, HOLDLOCK) WHERE Name = @name) '
-        + 'UPDATE dbo.Universities SET Category = @category, SourceUrl = @sourceUrl, SourceUpdatedAt = @updatedAt, IsActive = 1 WHERE Name = @name '
-        + 'ELSE INSERT dbo.Universities (Name, Category, SourceUrl, SourceUpdatedAt, IsActive) VALUES (@name, @category, @sourceUrl, @updatedAt, 1)'
+      await q(
+        'INSERT dbo.Universities (Name, Category, SourceUrl, SourceUpdatedAt, IsActive) VALUES (?, ?, ?, now(), true) '
+        + 'ON CONFLICT (Name) DO UPDATE SET Category = EXCLUDED.Category, SourceUrl = EXCLUDED.SourceUrl, SourceUpdatedAt = EXCLUDED.SourceUpdatedAt, IsActive = true',
+        [university.name, university.category, university.sourceUrl]
       );
     }
-    await transaction.commit();
-  } catch (error) {
-    await transaction.rollback();
-    throw error;
-  }
+  });
   return imported.length;
 }
 
@@ -470,50 +523,6 @@ function refreshUniversities(force = false) {
     });
   }
   return universitySyncPromise;
-}
-
-
-async function askAnthropic(systemPrompt, userPrompt, maxTokens = 1800) {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    const error = new Error('AI is not configured on the server. Add ANTHROPIC_API_KEY in your hosting environment.');
-    error.statusCode = 503;
-    throw error;
-  }
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'content-type': 'application/json'
-    },
-    body: JSON.stringify({
-      model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514',
-      max_tokens: maxTokens,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userPrompt }]
-    }),
-    signal: AbortSignal.timeout(60000)
-  });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const message = payload.error && payload.error.message
-      ? payload.error.message
-      : `AI provider returned HTTP ${response.status}`;
-    const error = new Error(message);
-    error.statusCode = response.status === 429 ? 503 : 502;
-    throw error;
-  }
-  const text = (payload.content || [])
-    .filter(block => block.type === 'text')
-    .map(block => block.text || '')
-    .join('\\n').trim();
-  if (!text) {
-    const error = new Error('The AI provider returned an empty answer. Please try again.');
-    error.statusCode = 502;
-    throw error;
-  }
-  return text;
 }
 
 function routeTable() {
@@ -535,12 +544,12 @@ function routeTable() {
     try {
       if (pathname === '/api/health') {
         await dbRows('SELECT 1 AS Connected');
-        sendJson(res, 200, { ok: true, status: 'ok', database: process.env.SQL_DATABASE });
+        sendJson(res, 200, { ok: true, status: 'ok', database: 'postgres' });
         return;
       }
 
       if (pathname === '/api/posts' && req.method === 'GET') {
-        const rows = await dbRows('SELECT TOP 200 * FROM dbo.NewsArticles ORDER BY PublishedAt DESC');
+        const rows = await dbRows('SELECT * FROM dbo.NewsArticles ORDER BY PublishedAt DESC LIMIT 200');
         if (rows.length) {
           const posts = rows.map(r => ({
             id: r.Id,
@@ -561,8 +570,8 @@ function routeTable() {
       }
 
       if (pathname === '/api/universities') {
-        await refreshUniversities();
-        const rows = await dbRows('SELECT Id, Name, Category, State, SourceUrl, SourceUpdatedAt FROM dbo.Universities WHERE IsActive = 1 ORDER BY Name');
+        try { await refreshUniversities(); } catch (syncError) { console.error('University sync failed:', syncError.message); }
+        const rows = await dbRows('SELECT Id, Name, Category, State, SourceUrl, SourceUpdatedAt FROM dbo.Universities WHERE IsActive = true ORDER BY Name');
         sendJson(res, 200, rows.map(r => ({ Id: r.Id, Name: r.Name, Category: r.Category, State: r.State, SourceUrl: r.SourceUrl })));
         return;
       }
@@ -587,7 +596,7 @@ function routeTable() {
           sendJson(res, 400, { error: 'invalid_registration' });
           return;
         }
-        const university = await dbRows('SELECT Id FROM dbo.Universities WHERE Id = ? AND IsActive = 1', [universityId]);
+        const university = await dbRows('SELECT Id FROM dbo.Universities WHERE Id = ? AND IsActive = true', [universityId]);
         if (!university.length) {
           sendJson(res, 400, { error: 'invalid_university' });
           return;
@@ -596,11 +605,11 @@ function routeTable() {
         try {
           student = await dbWrite(
             'INSERT dbo.StudentProfiles (FullName, Email, PasswordHash, UniversityId, IsAdmin) OUTPUT INSERTED.Id '
-            + 'VALUES (?, ?, ?, ?, 0)',
+            + 'VALUES (?, ?, ?, ?, false)',
             [name, email, hashPassword(password), universityId]
           );
         } catch (err) {
-          if (err.number === 2601 || err.number === 2627) {
+          if (err.code === '23505') {
             sendJson(res, 409, { error: 'email_exists' });
             return;
           }
@@ -648,7 +657,7 @@ function routeTable() {
         }
         const body = await parseBody(req);
         const universityId = Number(body.universityId || 0);
-        const university = await dbRows('SELECT Id FROM dbo.Universities WHERE Id = ? AND IsActive = 1', [universityId]);
+        const university = await dbRows('SELECT Id FROM dbo.Universities WHERE Id = ? AND IsActive = true', [universityId]);
         if (!university.length) {
           sendJson(res, 400, { error: 'invalid_university' });
           return;
@@ -739,31 +748,26 @@ function routeTable() {
           sendJson(res, 400, { error: 'invalid_signup' });
           return;
         }
-        const transaction = new sql.Transaction(await connectDatabase());
-        await transaction.begin();
+        let inviteOk = true;
         try {
-          const findInvite = new sql.Request(transaction);
-          findInvite.input('codeHash', sql.Char(64), tokenHash(code));
-          const invites = await findInvite.query('SELECT Id FROM dbo.ReporterInvites WITH (UPDLOCK, ROWLOCK) WHERE CodeHash = @codeHash AND UsedByReporterId IS NULL');
-          if (!invites.recordset.length) {
-            await transaction.rollback();
-            sendJson(res, 400, { error: 'invalid_invite' });
-            return;
-          }
-          const createReporter = new sql.Request(transaction);
-          createReporter.input('username', username).input('name', name).input('email', email).input('passwordHash', hashPassword(password));
-          const created = await createReporter.query('INSERT dbo.Reporters (Username, FullName, Email, PasswordHash) OUTPUT INSERTED.Id VALUES (@username, @name, @email, @passwordHash)');
-          const useInvite = new sql.Request(transaction);
-          useInvite.input('reporterId', sql.Int, created.recordset[0].Id).input('inviteId', sql.Int, invites.recordset[0].Id);
-          await useInvite.query('UPDATE dbo.ReporterInvites SET UsedByReporterId = @reporterId, UsedAt = SYSUTCDATETIME() WHERE Id = @inviteId AND UsedByReporterId IS NULL');
-          await transaction.commit();
+          await withTransaction(async q => {
+            const invites = await q('SELECT Id FROM dbo.ReporterInvites WHERE CodeHash = ? AND UsedByReporterId IS NULL FOR UPDATE', [tokenHash(code)]);
+            if (!invites.rows.length) { inviteOk = false; return; }
+            const created = await q('INSERT dbo.Reporters (Username, FullName, Email, PasswordHash) OUTPUT INSERTED.Id VALUES (?, ?, ?, ?)',
+              [username, name, email, hashPassword(password)]);
+            await q('UPDATE dbo.ReporterInvites SET UsedByReporterId = ?, UsedAt = SYSUTCDATETIME() WHERE Id = ? AND UsedByReporterId IS NULL',
+              [created.rows[0].Id, invites.rows[0].Id]);
+          });
         } catch (error) {
-          await transaction.rollback();
-          if (error.number === 2601 || error.number === 2627) {
+          if (error.code === '23505') {
             sendJson(res, 409, { error: 'account_exists' });
             return;
           }
           throw error;
+        }
+        if (!inviteOk) {
+          sendJson(res, 400, { error: 'invalid_invite' });
+          return;
         }
         sendJson(res, 201, { message: 'account_created' });
         return;
@@ -847,7 +851,7 @@ function routeTable() {
         const counts = { published: 0, pending: 0, skipped: 0 };
         for (const item of candidates) {
           const duplicates = await dbRows(
-            "SELECT TOP (1) Id FROM dbo.NewsArticles WHERE SourceUrl = ? UNION ALL SELECT TOP (1) Id FROM dbo.PendingNewsArticles WHERE SourceUrl = ? AND Status IN (N'pending', N'published')",
+            "(SELECT Id FROM dbo.NewsArticles WHERE SourceUrl = ? LIMIT 1) UNION ALL (SELECT Id FROM dbo.PendingNewsArticles WHERE SourceUrl = ? AND Status IN (N'pending', N'published') LIMIT 1)",
             [item.sourceUrl, item.sourceUrl]
           );
           if (duplicates.length) {
@@ -870,61 +874,6 @@ function routeTable() {
           }
         }
         sendJson(res, 200, { added: counts.published + counts.pending, ...counts });
-        return;
-      }
-
-      if (pathname === '/api/tutor' && req.method === 'POST') {
-        const student = await requireStudent(req);
-        if (!student) {
-          sendJson(res, 401, { error: 'Please sign in with your student account to use the AI tutor.' });
-          return;
-        }
-        const body = await parseBody(req);
-        const subject = String(body.subject || '').trim().slice(0, 160);
-        const question = String(body.question || '').trim().slice(0, 5000);
-        const mode = String(body.mode || 'explain').trim().slice(0, 40);
-        const history = Array.isArray(body.history) ? body.history.slice(-6).map(item => ({
-          role: item && item.role === 'assistant' ? 'Tutor' : 'Student',
-          text: String(item && item.text || '').slice(0, 1200)
-        })) : [];
-        if (!subject || !question) {
-          sendJson(res, 400, { error: 'Choose a subject and enter a question.' });
-          return;
-        }
-        const modeInstructions = {
-          explain: 'Explain the idea clearly, step by step, with a simple example.',
-          quiz: 'Create a short interactive quiz. Ask one question at a time and wait for the student answer.',
-          plan: 'Create a realistic study plan with short daily tasks and revision.'
-        };
-        const prompt = [
-          `Student's subject: ${subject}`,
-          `Requested mode: ${modeInstructions[mode] || modeInstructions.explain}`,
-          history.length ? 'Recent conversation:\\n' + history.map(item => `${item.role}: ${item.text}`).join('\\n') : '',
-          `Student's question: ${question}`,
-          'Be encouraging and accurate. If information may depend on a specific syllabus or current official policy, say so and recommend checking the official source. Do not pretend to have checked sources you have not checked.'
-        ].filter(Boolean).join('\\n\\n');
-        const text = await askAnthropic('You are the Tobi World Wide educational study tutor. Teach Nigerian secondary-school and university students in clear, age-appropriate language. Show working for calculations, define unfamiliar terms, and never claim certainty when unsure.', prompt, 1800);
-        sendJson(res, 200, { text });
-        return;
-      }
-
-      if (pathname === '/api/outline/generate' && req.method === 'POST') {
-        const student = await requireStudent(req);
-        if (!student) {
-          sendJson(res, 401, { error: 'Please sign in with your student account to generate a study outline.' });
-          return;
-        }
-        const rows = await dbRows(
-          'SELECT FullName, Email, UniversityId FROM dbo.StudentProfiles WHERE Id = ?',
-          [student.Id]
-        );
-        const profile = rows[0] || {};
-        const text = await askAnthropic(
-          'You are an academic study-planning assistant. Produce a useful draft study outline, not an official university syllabus. Clearly tell the student to compare it with their department handbook and lecturer-provided course outline.',
-          `Create a practical study outline for a student at ${student.University || 'their university'}. Student name: ${profile.FullName || student.FullName || 'Student'}. Programme: use "not supplied" if unknown. Organize by likely foundational topics, learning objectives, weekly study sequence, practice activities, and revision checklist. Do not invent official course codes or claim this is the university's official curriculum.`,
-          1800
-        );
-        sendJson(res, 200, { text });
         return;
       }
 
@@ -956,9 +905,9 @@ function routeTable() {
           return;
         }
         const messages = await dbRows(
-          'SELECT Id, SenderId, RecipientId, Body, SentAt FROM (SELECT TOP (100) Id, SenderId, RecipientId, Body, SentAt '
+          'SELECT Id, SenderId, RecipientId, Body, SentAt FROM (SELECT Id, SenderId, RecipientId, Body, SentAt '
           + 'FROM dbo.StudentMessages WHERE (SenderId = ? AND RecipientId = ?) OR (SenderId = ? AND RecipientId = ?) '
-          + 'ORDER BY Id DESC) AS recent ORDER BY Id',
+          + 'ORDER BY Id DESC LIMIT 100) AS recent ORDER BY Id',
           [student.Id, recipientId, recipientId, student.Id]
         );
         sendJson(res, 200, messages.map(message => ({ id: message.Id, senderId: message.SenderId, recipientId: message.RecipientId, body: message.Body, sentAt: message.SentAt })));
@@ -1013,40 +962,25 @@ function routeTable() {
         }
         const [, rawId, action] = match;
         const id = Number(rawId);
-        const pool = await connectDatabase();
-        const transaction = new sql.Transaction(pool);
-        await transaction.begin();
-        try {
-          const select = new sql.Request(transaction);
-          select.input('pendingId', sql.BigInt, id);
-          const found = await select.query("SELECT Id, Topic, Headline, Summary, BodyHtml, School, SourceUrl FROM dbo.PendingNewsArticles WITH (UPDLOCK, ROWLOCK) WHERE Id = @pendingId AND Status = N'pending'");
-          const item = found.recordset[0];
-          if (!item) {
-            await transaction.rollback();
-            sendJson(res, 404, { error: 'pending_news_not_found' });
-            return;
-          }
+        const outcome = await withTransaction(async q => {
+          const found = await q("SELECT Id, Topic, Headline, Summary, BodyHtml, School, SourceUrl FROM dbo.PendingNewsArticles WHERE Id = ? AND Status = N'pending' FOR UPDATE", [id]);
+          const item = found.rows[0];
+          if (!item) return false;
           if (action === 'approve') {
-            const insert = new sql.Request(transaction);
-            insert.input('topic', item.Topic).input('headline', item.Headline).input('summary', item.Summary)
-              .input('bodyHtml', item.BodyHtml).input('minutes', readingMinutes(item.BodyHtml))
-              .input('school', item.School).input('sourceUrl', item.SourceUrl);
-            const published = await insert.query(
+            const published = await q(
               'INSERT dbo.NewsArticles (Topic, Headline, Summary, BodyHtml, ReadingMinutes, School, SourceUrl, AuthorId) '
-              + 'OUTPUT INSERTED.Id VALUES (@topic, @headline, @summary, @bodyHtml, @minutes, @school, @sourceUrl, NULL)'
+              + 'OUTPUT INSERTED.Id VALUES (?, ?, ?, ?, ?, ?, ?, NULL)',
+              [item.Topic, item.Headline, item.Summary, item.BodyHtml, readingMinutes(item.BodyHtml), item.School, item.SourceUrl]
             );
-            const update = new sql.Request(transaction);
-            update.input('articleId', sql.BigInt, published.recordset[0].Id).input('pendingId', sql.BigInt, id);
-            await update.query("UPDATE dbo.PendingNewsArticles SET Status = N'published', ReviewedAt = SYSUTCDATETIME(), PublishedArticleId = @articleId WHERE Id = @pendingId");
+            await q("UPDATE dbo.PendingNewsArticles SET Status = N'published', ReviewedAt = SYSUTCDATETIME(), PublishedArticleId = ? WHERE Id = ?", [published.rows[0].Id, id]);
           } else {
-            const update = new sql.Request(transaction);
-            update.input('pendingId', sql.BigInt, id);
-            await update.query("UPDATE dbo.PendingNewsArticles SET Status = N'rejected', ReviewedAt = SYSUTCDATETIME() WHERE Id = @pendingId");
+            await q("UPDATE dbo.PendingNewsArticles SET Status = N'rejected', ReviewedAt = SYSUTCDATETIME() WHERE Id = ?", [id]);
           }
-          await transaction.commit();
-        } catch (error) {
-          await transaction.rollback();
-          throw error;
+          return true;
+        });
+        if (!outcome) {
+          sendJson(res, 404, { error: 'pending_news_not_found' });
+          return;
         }
         sendJson(res, 200, { message: `news_${action === 'approve' ? 'published' : 'rejected'}` });
         return;
@@ -1132,13 +1066,12 @@ function routeTable() {
           sendJson(res, 400, { error: 'invalid_reporter_id' });
           return;
         }
-        await dbWrite(
-          "DELETE dbo.PortalSessions WHERE UserType = N'reporter' AND UserId = ?; "
-          + 'DELETE dbo.SubmittedReports WHERE ReporterId = ?; '
-          + 'DELETE dbo.ReporterInvites WHERE UsedByReporterId = ?; '
-          + 'DELETE dbo.Reporters WHERE Id = ?;',
-          [reporterId, reporterId, reporterId, reporterId]
-        );
+        await withTransaction(async q => {
+          await q("DELETE dbo.PortalSessions WHERE UserType = N'reporter' AND UserId = ?", [reporterId]);
+          await q('DELETE dbo.SubmittedReports WHERE ReporterId = ?', [reporterId]);
+          await q('UPDATE dbo.ReporterInvites SET UsedByReporterId = NULL WHERE UsedByReporterId = ?', [reporterId]);
+          await q('DELETE dbo.Reporters WHERE Id = ?', [reporterId]);
+        });
         sendJson(res, 200, { message: 'reporter_removed' });
         return;
       }
@@ -1220,10 +1153,9 @@ function routeTable() {
       sendJson(res, 404, { error: 'not_found' });
     } catch (err) {
       const message = err.message || String(err);
-      const status = err.statusCode || (message === 'Invalid JSON' ? 400
+      const status = message === 'Invalid JSON' ? 400
         : message === 'Request body too large' ? 413
-          : message.startsWith('Set SQL_') ? 503
-            : message.startsWith('Set ANTHROPIC_API_KEY') ? 503 : 500);
+          : message.startsWith('Set DATABASE_URL') ? 503 : 500;
       sendJson(res, status, { error: status === 503 ? 'configuration_error' : status === 400 ? 'invalid_json' : status === 413 ? 'request_too_large' : 'server_error', message });
     }
   });
@@ -1231,10 +1163,7 @@ function routeTable() {
 
 const server = routeTable();
 server.on('close', async () => {
-  if (!poolPromise) return;
-  try {
-    (await poolPromise).close();
-  } catch (err) {}
+  if (pool) await pool.end().catch(() => {});
 });
 server.listen(PORT, HOST, () => {
   console.log(`TWW JS API listening on http://${HOST}:${PORT}`);
