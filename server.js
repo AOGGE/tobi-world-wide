@@ -563,20 +563,36 @@ function rateLimited(key, limit, windowMs) {
   return false;
 }
 
+class FriendlyError extends Error {}
+
 async function askClaude(system, messages, maxTokens, timeoutMs) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error('Set ANTHROPIC_API_KEY to enable the tutor');
-  const response = await fetch(ANTHROPIC_URL, {
-    method: 'POST',
-    headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-    body: JSON.stringify({ model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514', max_tokens: maxTokens, system, messages }),
-    signal: AbortSignal.timeout(timeoutMs)
-  });
-  const result = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(result.error?.message || `The AI service returned HTTP ${response.status}`);
-  const text = (result.content || []).filter(block => block.type === 'text').map(block => block.text).join('\n').trim();
-  if (!text) throw new Error('The AI service returned an empty answer');
-  return text;
+  if (!apiKey) throw new FriendlyError('The tutor has not been switched on yet.');
+  let lastProblem = '';
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    if (attempt) await new Promise(resolve => setTimeout(resolve, attempt * 1500));
+    try {
+      const response = await fetch(ANTHROPIC_URL, {
+        method: 'POST',
+        headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+        body: JSON.stringify({ model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514', max_tokens: maxTokens, system, messages }),
+        signal: AbortSignal.timeout(timeoutMs)
+      });
+      const result = await response.json().catch(() => ({}));
+      if (response.ok) {
+        const text = (result.content || []).filter(block => block.type === 'text').map(block => block.text).join('\n').trim();
+        if (text) return text;
+        lastProblem = 'empty answer';
+        continue;
+      }
+      lastProblem = `HTTP ${response.status}: ${result.error?.message || 'no message'}`;
+      if (![429, 500, 502, 503, 504, 529].includes(response.status)) break; // not worth retrying (bad key, no credit, etc.)
+    } catch (error) {
+      lastProblem = error.message || String(error);
+    }
+  }
+  console.error('Tutor AI request failed:', lastProblem);
+  throw new FriendlyError('The tutor could not answer just now. Please send your question again in a moment.');
 }
 
 function tutorMessages(history, question) {
@@ -1313,6 +1329,10 @@ function routeTable() {
 
       sendJson(res, 404, { error: 'not_found' });
     } catch (err) {
+      if (err instanceof FriendlyError) {
+        sendJson(res, 502, { error: err.message });
+        return;
+      }
       const message = err.message || String(err);
       const status = message === 'Invalid JSON' ? 400
         : message === 'Request body too large' ? 413
