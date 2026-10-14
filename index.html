@@ -1644,7 +1644,7 @@ async function netCall(method,url,body){
 }
 function saveApiToken(token,role,keep){try{localStorage.removeItem('tww_api_token');sessionStorage.removeItem('tww_api_token');if(keep)localStorage.setItem('tww_api_token',token);else sessionStorage.setItem('tww_api_token',token);localStorage.setItem('tww_api_role',role)}catch(e){}}
 function clearApiToken(){try{localStorage.removeItem('tww_api_token');sessionStorage.removeItem('tww_api_token');localStorage.removeItem('tww_api_role')}catch(e){}}
-async function findUniversityId(name){var schools=await call('GET','/api/universities');if(!Array.isArray(schools))return null;var match=schools.find(function(x){return String(x.Name||x.name||'').trim().toLowerCase()===String(name||'').trim().toLowerCase()});return match&&(match.Id||match.id)}
+async function findUniversityId(name){var schools=await call('GET','/api/universities');if(!Array.isArray(schools))return null;var norm=function(v){return String(v||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim()},want=norm(name);if(!want)return null;var list=schools.map(function(x){return {id:x.Id||x.id,n:norm(x.Name||x.name)}}).filter(function(x){return x.id&&x.n});var m=list.find(function(x){return x.n===want});if(!m){var c=list.filter(function(x){return x.n.indexOf(want+' ')===0}).sort(function(a,b){return a.n.length-b.n.length});m=c[0]}if(!m){var c2=list.filter(function(x){return want.indexOf(x.n+' ')===0}).sort(function(a,b){return b.n.length-a.n.length});m=c2[0]}return m&&m.id}
 var ApiStore={mode:'api',
   async init(){var posts=await call('GET','/api/posts');if(posts.error)return {error:posts.error,extras:[]};
     var student=await call('GET','/api/me'),portal=null;if(student.error)portal=await call('GET','/api/portal/me');
