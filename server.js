@@ -524,6 +524,32 @@ async function syncUniversities(force) {
   return imported.length;
 }
 
+let lastUniversitySyncFail = 0;
+async function seedBuiltInUniversities() {
+  const list = JSON.parse(fs.readFileSync(path.join(__dirname, 'api', 'universities.json'), 'utf8'));
+  await withTransaction(async q => {
+    for (const u of list) {
+      await q(
+        'INSERT dbo.Universities (Name, Category, State, IsActive) VALUES (?, ?, ?, true) ON CONFLICT (Name) DO NOTHING',
+        [u.name, u.category, u.state]
+      );
+    }
+  });
+}
+
+async function ensureUniversities() {
+  if (Date.now() - lastUniversitySyncFail > 60 * 60 * 1000) {
+    try { await refreshUniversities(); } catch (syncError) {
+      lastUniversitySyncFail = Date.now();
+      console.error('University sync failed:', syncError.message);
+    }
+  }
+  try {
+    const rows = await dbRows('SELECT COUNT(*) AS Total FROM dbo.Universities WHERE IsActive = true');
+    if (Number(rows[0]?.Total || 0) < 100) await seedBuiltInUniversities();
+  } catch (seedError) { console.error('University seed failed:', seedError.message); }
+}
+
 function refreshUniversities(force = false) {
   if (!universitySyncPromise) {
     universitySyncPromise = syncUniversities(force).finally(() => {
@@ -708,7 +734,7 @@ function routeTable() {
       }
 
       if (pathname === '/api/universities') {
-        try { await refreshUniversities(); } catch (syncError) { console.error('University sync failed:', syncError.message); }
+        await ensureUniversities();
         const rows = await dbRows('SELECT Id, Name, Category, State, SourceUrl, SourceUpdatedAt FROM dbo.Universities WHERE IsActive = true ORDER BY Name');
         sendJson(res, 200, rows.map(r => ({ Id: r.Id, Name: r.Name, Category: r.Category, State: r.State, SourceUrl: r.SourceUrl })));
         return;
