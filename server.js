@@ -572,7 +572,47 @@ function rateLimited(key, limit, windowMs) {
 
 class FriendlyError extends Error {}
 
+const GEMINI_BASE = process.env.GEMINI_API_URL || 'https://generativelanguage.googleapis.com/v1beta';
+const aiEnabled = () => !!(process.env.GEMINI_API_KEY || process.env.ANTHROPIC_API_KEY);
+
+async function askGemini(system, messages, maxTokens, timeoutMs) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  const models = [...new Set([process.env.GEMINI_MODEL, 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-flash-latest'].filter(Boolean))];
+  const contents = messages.map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: String(m.content) }] }));
+  let lastProblem = '';
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    if (attempt) await new Promise(resolve => setTimeout(resolve, attempt * 1500));
+    const model = models[Math.min(Math.floor(attempt / 2), models.length - 1)];
+    try {
+      const response = await fetch(`${GEMINI_BASE}/models/${model}:generateContent`, {
+        method: 'POST',
+        headers: { 'x-goog-api-key': apiKey, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: system }] },
+          contents,
+          generationConfig: { maxOutputTokens: Math.max(maxTokens, 1024) + 2048 }
+        }),
+        signal: AbortSignal.timeout(timeoutMs)
+      });
+      const result = await response.json().catch(() => ({}));
+      if (response.ok) {
+        const text = (result.candidates?.[0]?.content?.parts || []).filter(p => !p.thought).map(p => p.text || '').join('').trim();
+        if (text) return text;
+        lastProblem = `empty answer (${result.candidates?.[0]?.finishReason || result.promptFeedback?.blockReason || 'unknown'})`;
+        continue;
+      }
+      lastProblem = `HTTP ${response.status} (${model}): ${result.error?.message || 'no message'}`;
+      if ([400, 401, 403].includes(response.status)) break;
+    } catch (error) {
+      lastProblem = error.message || String(error);
+    }
+  }
+  console.error('Tutor AI (Gemini) request failed:', lastProblem);
+  throw new FriendlyError('The tutor could not answer just now. Please send your question again in a moment.');
+}
+
 async function askClaude(system, messages, maxTokens, timeoutMs) {
+  if (process.env.GEMINI_API_KEY) return askGemini(system, messages, maxTokens, timeoutMs);
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new FriendlyError('The tutor has not been switched on yet.');
   let lastProblem = '';
@@ -683,7 +723,7 @@ function routeTable() {
         sendJson(res, 200, {
           name: user.FullName, email: user.Email, school: user.University, admin: !!user.IsAdmin,
           matric: user.Matric || '', programme: user.Programme || '', subjects: parseSubjects(user.Subjects),
-          aiOutline: user.AiOutline || '', tutor: !!process.env.ANTHROPIC_API_KEY
+          aiOutline: user.AiOutline || '', tutor: aiEnabled()
         });
         return;
       }
@@ -836,7 +876,7 @@ function routeTable() {
           sendJson(res, 401, { error: 'Please log in again.' });
           return;
         }
-        if (!process.env.ANTHROPIC_API_KEY) {
+        if (!aiEnabled()) {
           sendJson(res, 503, { error: 'The tutor has not been switched on yet.' });
           return;
         }
@@ -870,7 +910,7 @@ function routeTable() {
           sendJson(res, 401, { error: 'Please log in again.' });
           return;
         }
-        if (!process.env.ANTHROPIC_API_KEY) {
+        if (!aiEnabled()) {
           sendJson(res, 503, { error: 'The course outline has not been switched on yet.' });
           return;
         }
