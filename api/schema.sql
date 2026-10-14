@@ -118,3 +118,9 @@ CREATE TABLE IF NOT EXISTS NewsDeskSettings (
   UpdatedAt TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 INSERT INTO NewsDeskSettings (Id, AutoPublishOfficial) VALUES (1, FALSE) ON CONFLICT (Id) DO NOTHING;
+
+-- Student profile and study-guide data
+ALTER TABLE StudentProfiles ADD COLUMN IF NOT EXISTS Matric VARCHAR(60);
+ALTER TABLE StudentProfiles ADD COLUMN IF NOT EXISTS Programme VARCHAR(160);
+ALTER TABLE StudentProfiles ADD COLUMN IF NOT EXISTS Subjects TEXT NOT NULL DEFAULT '[]';
+ALTER TABLE StudentProfiles ADD COLUMN IF NOT EXISTS AiOutline TEXT;

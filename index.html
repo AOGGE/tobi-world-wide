@@ -1650,8 +1650,8 @@ var ApiStore={mode:'api',
     var student=await call('GET','/api/me'),portal=null;if(student.error)portal=await call('GET','/api/portal/me');
     var schools=await call('GET','/api/universities');var isPortal=!!(portal&&!portal.error&&portal.role==='admin');
     var current=student&&!student.error?student:(isPortal?portal:null);
-    var user=current?{id:current.id||0,name:current.name,email:current.email,school:current.school||'Admin',matric:current.matric||'',programme:current.programme||'',subjects:[]}:null;
-    ApiStore._d={posts:posts,schools:schools};return {user:user,admin:isPortal||!!(student&&!student.error&&student.admin),extras:Array.isArray(schools)?schools.map(function(x){return x.Name||x.name}).filter(Boolean):[],tutor:true,role:isPortal?'admin':null}},
+    var user=current?{id:current.id||0,name:current.name,email:current.email,school:current.school||'Admin',matric:current.matric||'',programme:current.programme||'',subjects:current.subjects||[],aiOutline:current.aiOutline||''}:null;
+    ApiStore._d={posts:posts,schools:schools};return {user:user,admin:isPortal||!!(student&&!student.error&&student.admin),extras:Array.isArray(schools)?schools.map(function(x){return x.Name||x.name}).filter(Boolean):[],tutor:!!(student&&!student.error&&student.tutor),role:isPortal?'admin':null}},
   async register(a){var universityId=await findUniversityId(a.school);if(!universityId)return {error:'Select a university from the official list.'};return call('POST','/api/auth/register',{name:a.name,email:a.email,password:a.password,universityId:universityId})},
   async login(a){var j=await call('POST','/api/auth/login',a);if(j.token)saveApiToken(j.token,'student',a.keep!==false);return j},
   async logout(){var role='';try{role=localStorage.getItem('tww_api_role')||''}catch(e){}var result=await call('POST',role==='admin'?'/api/portal/logout':'/api/auth/logout');clearApiToken();return result},

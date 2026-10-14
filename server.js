@@ -23,6 +23,7 @@ const DEFAULT_POSTS = [
   { id: 2, t: 'Campus', h: 'Study smarter: five habits first-year students need', x: 'Habits that help you keep up from your very first semester.', r: 5, d: 'Campus life', body: '<p>Attend classes, review notes within a day, form a focused study group, practise with past questions, and plan your week.</p>', school: 'All schools', date: '2026-10-03' },
   { id: 1, t: 'Scholarships', h: 'Write a scholarship essay that stands out', x: 'A clear structure for a short personal statement you can adapt to any application.', r: 6, d: 'Writing guide', body: '<p>Use one real experience, explain your goal, give evidence, and finish with the impact you hope to make.</p>', school: 'All schools', date: '2026-10-03' }
 ];
+const ANTHROPIC_URL = process.env.ANTHROPIC_API_URL || 'https://api.anthropic.com/v1/messages';
 const NUC_PAGES = {
   Federal: 'https://www.nuc.edu.ng/wp-json/wp/v2/pages/165',
   State: 'https://www.nuc.edu.ng/wp-json/wp/v2/pages/163',
@@ -116,7 +117,7 @@ async function getUserFromToken(req) {
   const token = getToken(req);
   if (!token) return null;
   const rows = await dbRows(
-    'SELECT u.Id, u.FullName, u.Email, u.IsAdmin, u.UniversityId, v.Name AS University '
+    'SELECT u.Id, u.FullName, u.Email, u.IsAdmin, u.UniversityId, u.Matric, u.Programme, u.Subjects, u.AiOutline, v.Name AS University '
     + 'FROM dbo.ApiSessions s JOIN dbo.StudentProfiles u ON u.Id = s.StudentId '
     + 'JOIN dbo.Universities v ON v.Id = u.UniversityId '
     + 'WHERE s.TokenHash = ? AND s.ExpiresAt > SYSUTCDATETIME()',
@@ -148,7 +149,7 @@ let readyPromise;
 const COLUMN_NAMES = ('Id FullName Email IsAdmin UniversityId University Username DisplayName PasswordHash Name Category State '
   + 'SourceUrl SourceUpdatedAt Topic Headline Summary BodyHtml ReadingMinutes School PublishedAt SourceHost IsOfficialSource '
   + 'CreatedAt Title Body Status SubmittedAt Author AutoPublishOfficial Total LastSync SenderId RecipientId SentAt UsedBy '
-  + 'SourceTitle Connected UserType UserId').split(' ');
+  + 'SourceTitle Connected UserType UserId Matric Programme Subjects AiOutline').split(' ');
 const CANONICAL = new Map(COLUMN_NAMES.map(name => [name.toLowerCase(), name]));
 types.setTypeParser(20, value => Number(value)); // BIGINT / COUNT(*) as numbers
 
@@ -393,7 +394,7 @@ function officialHost(host) {
 async function discoverNews() {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error('Set ANTHROPIC_API_KEY to enable verified news search');
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
+  const response = await fetch(ANTHROPIC_URL, {
     method: 'POST',
     headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
     body: JSON.stringify({
@@ -525,6 +526,80 @@ function refreshUniversities(force = false) {
   return universitySyncPromise;
 }
 
+function parseSubjects(raw) {
+  try {
+    const list = JSON.parse(raw || '[]');
+    return Array.isArray(list) ? list : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+function cleanSubjects(input) {
+  if (!Array.isArray(input) || input.length > 20) return null;
+  const seen = new Set();
+  const result = [];
+  for (const item of input) {
+    const title = String(item && item.t || '').trim().slice(0, 80);
+    const id = String(item && item.id || '').trim().slice(0, 40);
+    const units = Math.min(10, Math.max(1, Math.round(Number(item && item.u) || 2)));
+    if (!title || !id || seen.has(title.toLowerCase())) return null;
+    seen.add(title.toLowerCase());
+    result.push({ id, t: title, u: units });
+  }
+  return result;
+}
+
+const rateBuckets = new Map();
+function rateLimited(key, limit, windowMs) {
+  const now = Date.now();
+  const recent = (rateBuckets.get(key) || []).filter(time => now - time < windowMs);
+  if (recent.length >= limit) {
+    rateBuckets.set(key, recent);
+    return true;
+  }
+  recent.push(now);
+  rateBuckets.set(key, recent);
+  return false;
+}
+
+async function askClaude(system, messages, maxTokens, timeoutMs) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error('Set ANTHROPIC_API_KEY to enable the tutor');
+  const response = await fetch(ANTHROPIC_URL, {
+    method: 'POST',
+    headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+    body: JSON.stringify({ model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514', max_tokens: maxTokens, system, messages }),
+    signal: AbortSignal.timeout(timeoutMs)
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error?.message || `The AI service returned HTTP ${response.status}`);
+  const text = (result.content || []).filter(block => block.type === 'text').map(block => block.text).join('\n').trim();
+  if (!text) throw new Error('The AI service returned an empty answer');
+  return text;
+}
+
+function tutorMessages(history, question) {
+  const turns = [];
+  for (const item of Array.isArray(history) ? history.slice(-6) : []) {
+    const role = item && item.role === 'assistant' ? 'assistant' : item && item.role === 'user' ? 'user' : null;
+    const text = String(item && item.text || '').trim().slice(0, 2000);
+    if (!role || !text) continue;
+    if (turns.length && turns[turns.length - 1].role === role) turns[turns.length - 1].content += '\n' + text;
+    else turns.push({ role, content: text });
+  }
+  while (turns.length && turns[0].role !== 'user') turns.shift();
+  if (turns.length && turns[turns.length - 1].role === 'user') turns[turns.length - 1].content += '\n' + question;
+  else turns.push({ role: 'user', content: question });
+  return turns;
+}
+
+const TUTOR_MODES = {
+  explain: 'Explain the topic or question clearly, step by step, with one simple example. Keep it under 300 words.',
+  quiz: 'Write a short quiz of 5 questions on the topic, with the answers listed at the end. Keep questions at university level.',
+  plan: 'Give a practical reading plan for the topic across the coming days, with specific things to read and practise. Keep it under 300 words.'
+};
+
 function routeTable() {
   return http.createServer(async (req, res) => {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
@@ -582,7 +657,11 @@ function routeTable() {
           sendJson(res, 401, { error: 'unauthorized' });
           return;
         }
-        sendJson(res, 200, { name: user.FullName, email: user.Email, school: user.University, admin: !!user.IsAdmin });
+        sendJson(res, 200, {
+          name: user.FullName, email: user.Email, school: user.University, admin: !!user.IsAdmin,
+          matric: user.Matric || '', programme: user.Programme || '', subjects: parseSubjects(user.Subjects),
+          aiOutline: user.AiOutline || '', tutor: !!process.env.ANTHROPIC_API_KEY
+        });
         return;
       }
 
@@ -706,6 +785,88 @@ function routeTable() {
           [topic, headline, summary, article, readingMinutes(article), school, sourceUrl, student.Id]
         );
         sendJson(res, 201, { id: post.Id, message: 'published' });
+        return;
+      }
+
+      if (pathname === '/api/profile' && req.method === 'PUT') {
+        const student = await requireStudent(req);
+        if (!student) {
+          sendJson(res, 401, { error: 'Please log in again.' });
+          return;
+        }
+        const body = await parseBody(req);
+        const matric = String(body.matric || '').trim().slice(0, 60);
+        const programme = String(body.programme || '').trim().slice(0, 160);
+        const subjects = cleanSubjects(body.subjects || []);
+        if (!subjects) {
+          sendJson(res, 400, { error: 'Check your subjects: up to 20, each with a different name.' });
+          return;
+        }
+        await dbWrite('UPDATE dbo.StudentProfiles SET Matric = ?, Programme = ?, Subjects = ? WHERE Id = ?', [matric, programme, JSON.stringify(subjects), student.Id]);
+        sendJson(res, 200, { ok: true });
+        return;
+      }
+
+      if (pathname === '/api/tutor' && req.method === 'POST') {
+        const student = await requireStudent(req);
+        if (!student) {
+          sendJson(res, 401, { error: 'Please log in again.' });
+          return;
+        }
+        if (!process.env.ANTHROPIC_API_KEY) {
+          sendJson(res, 503, { error: 'The tutor has not been switched on yet.' });
+          return;
+        }
+        const body = await parseBody(req);
+        const subject = String(body.subject || '').trim();
+        const mode = Object.prototype.hasOwnProperty.call(TUTOR_MODES, body.mode) ? body.mode : 'explain';
+        const question = String(body.question || '').trim().slice(0, 600);
+        if (!question) {
+          sendJson(res, 400, { error: 'Type a topic or a question.' });
+          return;
+        }
+        if (!parseSubjects(student.Subjects).some(item => item.t === subject)) {
+          sendJson(res, 400, { error: 'Add that subject to your study guide first.' });
+          return;
+        }
+        if (rateLimited(`tutor:${student.Id}`, 30, 60 * 60 * 1000)) {
+          sendJson(res, 429, { error: 'You have asked many questions in the last hour. Please try again in a while.' });
+          return;
+        }
+        const system = `You are a patient university tutor for a Nigerian student${student.Programme ? ` studying ${student.Programme}` : ''} at ${student.University}. `
+          + `The current course is "${subject}". ${TUTOR_MODES[mode]} Use plain language and short paragraphs without markdown symbols. `
+          + 'If you are not sure about a fact, say so and tell the student to confirm with their lecturer or course material. Stay on the course topic.';
+        const text = await askClaude(system, tutorMessages(body.history, question), 900, 60000);
+        sendJson(res, 200, { text });
+        return;
+      }
+
+      if (pathname === '/api/outline/generate' && req.method === 'POST') {
+        const student = await requireStudent(req);
+        if (!student) {
+          sendJson(res, 401, { error: 'Please log in again.' });
+          return;
+        }
+        if (!process.env.ANTHROPIC_API_KEY) {
+          sendJson(res, 503, { error: 'The course outline has not been switched on yet.' });
+          return;
+        }
+        const subjects = parseSubjects(student.Subjects);
+        if (!subjects.length) {
+          sendJson(res, 400, { error: 'Add your subjects first, then generate the outline.' });
+          return;
+        }
+        if (rateLimited(`outline:${student.Id}`, 5, 60 * 60 * 1000)) {
+          sendJson(res, 429, { error: 'You have generated several outlines in the last hour. Please try again later.' });
+          return;
+        }
+        const list = subjects.map(item => `${item.t} (${item.u} unit${item.u > 1 ? 's' : ''})`).join('; ');
+        const system = 'You write study outlines for Nigerian university students. For each course, list 6 to 8 key topics in the order a student should study them, '
+          + 'then one short line on how to prepare. Use plain text with the course name on its own line, numbered topics, and no markdown symbols. '
+          + 'Do not invent lecturer names or exam dates. End with one sentence reminding the student to confirm the real syllabus with their department.';
+        const text = await askClaude(system, [{ role: 'user', content: `University: ${student.University}\nProgramme: ${student.Programme || 'not stated'}\nCourses: ${list}` }], 2400, 85000);
+        await dbWrite('UPDATE dbo.StudentProfiles SET AiOutline = ? WHERE Id = ?', [text, student.Id]);
+        sendJson(res, 200, { text });
         return;
       }
 
