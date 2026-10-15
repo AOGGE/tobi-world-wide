@@ -1610,7 +1610,7 @@ async function localCall(method,url,body){
   var d=window.__staffRead(),W=window.__staffWrite,m;
   function me(){var u='';try{u=sessionStorage.getItem('tobi_rep')||''}catch(e){}return d.staff.filter(function(x){return x.username===u})[0]}
   if(url==='/api/admin/staff'&&method==='GET')return {ai:false,students:0,settings:{autoPublish:false},pendingNews:[],invites:d.invites,staff:d.staff.map(function(x){return {name:x.name,username:x.username,email:x.email,created:x.created}}),reports:d.reports.slice().reverse()};
-  if(url==='/api/admin/invites'&&method==='POST'){var A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789',c='',i;do{c='';for(i=0;i<8;i++)c+=A[Math.floor(Math.random()*A.length)]}while(d.invites.some(function(x){return x.code===c}));
+  if((url==='/api/admin/invites'||url==='/api/portal/admin/invites')&&method==='POST'){var A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789',c='',i;do{c='';for(i=0;i<8;i++)c+=A[Math.floor(Math.random()*A.length)]}while(d.invites.some(function(x){return x.code===c}));
     d.invites.push({code:c,created:Date.now(),usedBy:''});W(d);return {code:c}}
   if(m=url.match(/^\/api\/admin\/invites\/(.+)$/)){d.invites=d.invites.filter(function(x){return x.code!==m[1]});W(d);return {ok:true}}
   if(method==='DELETE'&&(m=url.match(/^\/api\/admin\/staff\/(.+)$/))){d.staff=d.staff.filter(function(x){return x.username!==m[1]});W(d);return {ok:true}}
@@ -1619,7 +1619,7 @@ async function localCall(method,url,body){
     else if(m[2]==='reject'){r.status='rejected'}
     else{if(r.status!=='approved'){await Store.addPost({t:r.topic,h:r.title,x:r.body.replace(/\s+/g,' ').slice(0,160),school:r.school,text:r.body+'\n\nReported by '+r.author});r.status='approved'}}
     W(d);return {ok:true}}
-  if(url==='/api/staff/signup'){var code=String(body.code||'').trim().toUpperCase(),inv=d.invites.filter(function(x){return x.code===code})[0];
+  if((url==='/api/staff/signup'||url==='/api/portal/signup')&&method==='POST'){var code=String(body.code||'').trim().toUpperCase(),inv=d.invites.filter(function(x){return x.code===code})[0];
     if(!inv||inv.usedBy)return {error:'That invite code is not valid or was already used.'};
     var un=String(body.username||'').trim().toLowerCase(),nm=String(body.name||'').trim(),em=String(body.email||'').trim();
     if(!nm||!em||!un)return {error:'Fill in every field.'};
@@ -1686,7 +1686,7 @@ async function drawStaff(){
 var _dm=drawManage;drawManage=function(){_dm();drawStaff()};
 $('#staffPanel').addEventListener('click',async function(e){
   var b=e.target.closest('button');if(!b)return;var a=b.dataset.act,id=b.dataset.id,m=$('#invMsg');
-  if(b.id==='genInv'){var j=await call('POST','/api/admin/invites');if(j.code){m.textContent='New invite code: '+j.code+' (link: '+inviteLink(j.code)+')'}drawStaff();return}
+  if(b.id==='genInv'){b.disabled=true;m.textContent='Generating invite code...';var j=await call('POST','/api/portal/admin/invites');b.disabled=false;if(j.code){m.textContent='New invite code: '+j.code+' (link: '+inviteLink(j.code)+')'}drawStaff();return}
   if(b.id==='newsRun'){b.disabled=true;say($('#newsMsg'),'Searching and checking source pages...',true);var r=await call('POST','/api/admin/news/run');b.disabled=false;
     say($('#newsMsg'),r.error||('Published '+r.published+' official items, queued '+r.pending+' for review, skipped '+r.skipped+'.'),!r.error);if(!r.error){await refreshPosts();drawManage()}return}
   if(!a)return;
@@ -1708,8 +1708,8 @@ $('#autoPub').addEventListener('change',async function(){var enabled=this.checke
   if(result.error){this.checked=!enabled;say($('#newsMsg'),result.error,false)}else say($('#newsMsg'),enabled?'Official-source auto-publish enabled.':'Official-source auto-publish disabled.',true)});
 $('#toRepSignup').addEventListener('click',function(){view('repsignup')});
 $('#repBack').addEventListener('click',function(){view('adminlogin')});
-$('#repForm').addEventListener('submit',async function(e){e.preventDefault();
-  var r=await call('POST','/api/staff/signup',{code:$('#sCode').value,name:$('#sName').value,email:$('#sEmail').value,username:$('#sUser').value,password:$('#sPass').value});
+try{var inviteFromUrl=new URLSearchParams(location.search).get('invite');if(inviteFromUrl)$('#sCode').value=inviteFromUrl.toUpperCase()}catch(x){}\n$('#repForm').addEventListener('submit',async function(e){e.preventDefault();
+  var r=await call('POST','/api/portal/signup',{code:$('#sCode').value,name:$('#sName').value,email:$('#sEmail').value,username:$('#sUser').value,password:$('#sPass').value});
   if(r.error)return say($('#sMsg'),r.error);openReporter()});
 $('#rpTopic').innerHTML=TOPICS.map(function(x){return '<option>'+x.id+'</option>'}).join('');
 async function openReporter(){view('reporterView');var l=await call('GET','/api/reports/mine');
