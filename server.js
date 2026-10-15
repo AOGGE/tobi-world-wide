@@ -404,19 +404,29 @@ async function discoverNews() {
   let searchedUrls = null;
   const textParts = [];
   if (process.env.GEMINI_API_KEY) {
-    const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
-    const response = await fetch(`${GEMINI_BASE}/models/${model}:generateContent`, {
-      method: 'POST',
-      headers: { 'x-goog-api-key': process.env.GEMINI_API_KEY, 'content-type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: NEWS_PROMPT }] }],
-        tools: [{ google_search: {} }],
-        generationConfig: { maxOutputTokens: 8192 }
-      }),
-      signal: AbortSignal.timeout(85000)
-    });
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(result.error?.message || `Gemini news search failed (HTTP ${response.status})`);
+    let model = geminiModelCache || process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+    const failed = new Set();
+    let result;
+    for (let tryN = 0; tryN < 3; tryN += 1) {
+      const response = await fetch(`${GEMINI_BASE}/models/${model}:generateContent`, {
+        method: 'POST',
+        headers: { 'x-goog-api-key': process.env.GEMINI_API_KEY, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: NEWS_PROMPT }] }],
+          tools: [{ google_search: {} }],
+          generationConfig: { maxOutputTokens: 8192 }
+        }),
+        signal: AbortSignal.timeout(85000)
+      });
+      result = await response.json().catch(() => ({}));
+      if (response.ok) { geminiModelCache = model; break; }
+      if (response.status === 404) {
+        failed.add(model);
+        const next = await pickGeminiModel(process.env.GEMINI_API_KEY, failed);
+        if (next) { model = next; continue; }
+      }
+      throw new Error(result.error?.message || `Gemini news search failed (HTTP ${response.status})`);
+    }
     for (const part of result.candidates?.[0]?.content?.parts || []) if (!part.thought && part.text) textParts.push(part.text);
   } else {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -621,14 +631,29 @@ class FriendlyError extends Error {}
 const GEMINI_BASE = process.env.GEMINI_API_URL || 'https://generativelanguage.googleapis.com/v1beta';
 const aiEnabled = () => !!(process.env.GEMINI_API_KEY || process.env.ANTHROPIC_API_KEY);
 
+let geminiModelCache = '';
+async function pickGeminiModel(apiKey, avoid) {
+  try {
+    const response = await fetch(`${GEMINI_BASE}/models?pageSize=200`, { headers: { 'x-goog-api-key': apiKey }, signal: AbortSignal.timeout(15000) });
+    const result = await response.json().catch(() => ({}));
+    const names = (result.models || [])
+      .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
+      .map(m => String(m.name || '').replace(/^models\//, ''))
+      .filter(n => /^gemini-[\d.]+-flash$/.test(n) && !avoid.has(n));
+    const version = n => Number(n.match(/^gemini-([\d.]+)-flash$/)[1]);
+    names.sort((x, y) => version(y) - version(x));
+    return names[0] || '';
+  } catch (error) { return ''; }
+}
+
 async function askGemini(system, messages, maxTokens, timeoutMs) {
   const apiKey = process.env.GEMINI_API_KEY;
-  const models = [...new Set([process.env.GEMINI_MODEL, 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-flash-latest'].filter(Boolean))];
   const contents = messages.map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: String(m.content) }] }));
+  const failedModels = new Set();
+  let model = geminiModelCache || process.env.GEMINI_MODEL || 'gemini-3.8-flash';
   let lastProblem = '';
-  for (let attempt = 0; attempt < 4; attempt += 1) {
-    if (attempt) await new Promise(resolve => setTimeout(resolve, attempt * 1500));
-    const model = models[Math.min(Math.floor(attempt / 2), models.length - 1)];
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    if (attempt) await new Promise(resolve => setTimeout(resolve, Math.min(attempt, 3) * 1200));
     try {
       const response = await fetch(`${GEMINI_BASE}/models/${model}:generateContent`, {
         method: 'POST',
@@ -643,11 +668,19 @@ async function askGemini(system, messages, maxTokens, timeoutMs) {
       const result = await response.json().catch(() => ({}));
       if (response.ok) {
         const text = (result.candidates?.[0]?.content?.parts || []).filter(p => !p.thought).map(p => p.text || '').join('').trim();
-        if (text) return text;
+        if (text) { geminiModelCache = model; return text; }
         lastProblem = `empty answer (${result.candidates?.[0]?.finishReason || result.promptFeedback?.blockReason || 'unknown'})`;
         continue;
       }
       lastProblem = `HTTP ${response.status} (${model}): ${result.error?.message || 'no message'}`;
+      if (response.status === 404) {
+        failedModels.add(model);
+        geminiModelCache = '';
+        const next = await pickGeminiModel(apiKey, failedModels);
+        if (!next) break;
+        model = next;
+        continue;
+      }
       if ([400, 401, 403].includes(response.status)) break;
     } catch (error) {
       lastProblem = error.message || String(error);
