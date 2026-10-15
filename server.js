@@ -359,7 +359,7 @@ async function fetchArticlePage(sourceUrl) {
     await validatePublicUrl(url);
     const response = await fetch(url, {
       redirect: 'manual',
-      headers: { 'User-Agent': 'TobiWorldWide/1.0 (news source verification)' },
+      headers: { 'User-Agent': NEWS_UA, 'Accept': 'text/html,application/xhtml+xml' },
       signal: AbortSignal.timeout(12000)
     });
     if ([301, 302, 303, 307, 308].includes(response.status)) {
@@ -400,6 +400,7 @@ function officialHost(host) {
 
 const NEWS_PROMPT = 'Search for recent Nigerian university, admissions, scholarships, JAMB, WAEC, or campus announcements. Return JSON only in the shape {"items":[{"headline":string,"summary":string,"body":string,"topic":"Admissions|Scholarships|JAMB|WAEC|Campus","school":string,"source_url":string}]}. Use only pages found by web search, make the headline closely match the page title, and do not invent details. Keep summaries under 200 characters and include a concise factual body.';
 
+const NEWS_UA = 'Mozilla/5.0 (compatible; TobiWorldWideBot/1.0; +https://tobi-world-wide.onrender.com)';
 const NEWS_SOURCE_PAGES = () => (process.env.TWW_NEWS_SOURCES || 'https://www.jamb.gov.ng/,https://nuc.edu.ng/,https://www.waecnigeria.org/,https://www.unilorin.edu.ng/').split(',').map(v => v.trim()).filter(Boolean);
 
 async function collectOfficialLinks() {
@@ -407,8 +408,8 @@ async function collectOfficialLinks() {
   for (const page of NEWS_SOURCE_PAGES()) {
     try {
       await validatePublicUrl(page);
-      const response = await fetch(page, { headers: { 'User-Agent': 'TobiWorldWide/1.0 (news source reader)' }, signal: AbortSignal.timeout(12000) });
-      if (!response.ok) continue;
+      const response = await fetch(page, { headers: { 'User-Agent': NEWS_UA, 'Accept': 'text/html,application/xhtml+xml' }, signal: AbortSignal.timeout(12000) });
+      if (!response.ok) { console.error('News source', page, 'HTTP', response.status); continue; }
       const html = (await response.text()).slice(0, 1_500_000);
       const host = new URL(response.url || page).hostname.replace(/^www\./, '');
       const seen = new Set();
@@ -422,8 +423,9 @@ async function collectOfficialLinks() {
         links.push({ text, url: url.href });
         if (seen.size >= 25) break;
       }
-    } catch (error) { continue; }
+    } catch (error) { console.error('News source', page, 'failed:', error.message); continue; }
   }
+  console.error('News fallback collected', links.length, 'links');
   return links;
 }
 
@@ -438,14 +440,15 @@ async function discoverFromOfficialPages() {
   const allowed = new Set(links.map(l => l.url));
   let urls = [];
   try { urls = (JSON.parse(pick.slice(pick.indexOf('{'), pick.lastIndexOf('}') + 1)).urls || []).filter(u => allowed.has(u)).slice(0, 5); } catch (e) { urls = []; }
+  console.error('News fallback picked', urls.length, 'urls');
   const pages = [];
   for (const url of urls) {
     try {
       const page = await fetchArticlePage(url);
       if (page.title) pages.push({ url: page.finalUrl, title: page.title, excerpt: page.text.slice(0, 3500) });
-    } catch (e) { continue; }
+    } catch (e) { console.error('News page', url, 'failed:', e.message); continue; }
   }
-  if (!pages.length) throw new Error('No official news pages could be opened');
+  if (!pages.length) throw new Error(urls.length ? 'The picked news pages could not be opened' : 'No news links were found on the official sites');
   return geminiGenerate({
     contents: [{ role: 'user', parts: [{ text: 'Write news items from these official pages. Use ONLY facts in the excerpt; do not invent details. Return JSON only in the shape {"items":[{"headline":string,"summary":string,"body":string,"topic":"Admissions|Scholarships|JAMB|WAEC|Campus","school":string,"source_url":string}]}. Copy each page title as the headline, keep the summary under 200 characters, and give a concise factual body.\n' + JSON.stringify(pages) }] }],
     generationConfig: { maxOutputTokens: 6000 }
