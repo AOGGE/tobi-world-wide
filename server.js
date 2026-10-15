@@ -891,9 +891,9 @@ function routeTable() {
         let student;
         try {
           student = await dbWrite(
-            'INSERT dbo.StudentProfiles (FullName, Email, PasswordHash, UniversityId, IsAdmin) OUTPUT INSERTED.Id '
-            + 'VALUES (?, ?, ?, ?, false)',
-            [name, email, hashPassword(password), universityId]
+            'INSERT dbo.StudentProfiles (FullName, Email, PasswordHash, UniversityId, IsAdmin, Matric, Programme) OUTPUT INSERTED.Id '
+            + 'VALUES (?, ?, ?, ?, false, ?, ?)',
+            [name, email, hashPassword(password), universityId, String(body.matric || '').trim().slice(0, 60) || null, String(body.programme || '').trim().slice(0, 160) || null]
           );
         } catch (err) {
           if (err.code === '23505') {
@@ -1156,6 +1156,23 @@ function routeTable() {
         const token = getToken(req);
         if (token) await dbWrite('DELETE dbo.PortalSessions WHERE TokenHash = ?', [tokenHash(token)]);
         sendJson(res, 200, { ok: true });
+        return;
+      }
+
+      if (pathname === '/api/admin/students') {
+        const current = await getPortalUser(req);
+        if (!current || current.role !== 'admin') {
+          sendJson(res, current ? 403 : 401, { error: 'admin_required' });
+          return;
+        }
+        const rows = await dbRows(
+          'SELECT u.Id, u.FullName, u.Email, u.Matric, u.Programme, u.CreatedAt, v.Name AS University '
+          + 'FROM dbo.StudentProfiles u JOIN dbo.Universities v ON v.Id = u.UniversityId ORDER BY u.CreatedAt DESC'
+        );
+        sendJson(res, 200, rows.map(r => ({
+          id: r.Id, name: r.FullName, email: r.Email, school: r.University,
+          matric: r.Matric || '', programme: r.Programme || '', joined: r.CreatedAt
+        })));
         return;
       }
 
