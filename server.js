@@ -404,30 +404,12 @@ async function discoverNews() {
   let searchedUrls = null;
   const textParts = [];
   if (process.env.GEMINI_API_KEY) {
-    let model = geminiModelCache || process.env.GEMINI_MODEL || 'gemini-3.8-flash';
-    const failed = new Set();
-    let result;
-    for (let tryN = 0; tryN < 3; tryN += 1) {
-      const response = await fetch(`${GEMINI_BASE}/models/${model}:generateContent`, {
-        method: 'POST',
-        headers: { 'x-goog-api-key': process.env.GEMINI_API_KEY, 'content-type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: NEWS_PROMPT }] }],
-          tools: [{ google_search: {} }],
-          generationConfig: { maxOutputTokens: 8192 }
-        }),
-        signal: AbortSignal.timeout(85000)
-      });
-      result = await response.json().catch(() => ({}));
-      if (response.ok) { geminiModelCache = model; break; }
-      if (response.status === 404) {
-        failed.add(model);
-        const next = await pickGeminiModel(process.env.GEMINI_API_KEY, failed);
-        if (next) { model = next; continue; }
-      }
-      throw new Error(result.error?.message || `Gemini news search failed (HTTP ${response.status})`);
-    }
-    for (const part of result.candidates?.[0]?.content?.parts || []) if (!part.thought && part.text) textParts.push(part.text);
+    const text = await geminiGenerate({
+      contents: [{ role: 'user', parts: [{ text: NEWS_PROMPT }] }],
+      tools: [{ google_search: {} }],
+      generationConfig: { maxOutputTokens: 8192 }
+    }, 85000);
+    textParts.push(text);
   } else {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error('Set GEMINI_API_KEY or ANTHROPIC_API_KEY to enable verified news search');
@@ -632,62 +614,85 @@ const GEMINI_BASE = process.env.GEMINI_API_URL || 'https://generativelanguage.go
 const aiEnabled = () => !!(process.env.GEMINI_API_KEY || process.env.ANTHROPIC_API_KEY);
 
 let geminiModelCache = '';
-async function pickGeminiModel(apiKey, avoid) {
+let geminiCandidateCache = { at: 0, list: [] };
+
+async function geminiCandidates(apiKey) {
+  if (Date.now() - geminiCandidateCache.at < 10 * 60 * 1000 && geminiCandidateCache.list.length) return geminiCandidateCache.list;
   try {
     const response = await fetch(`${GEMINI_BASE}/models?pageSize=200`, { headers: { 'x-goog-api-key': apiKey }, signal: AbortSignal.timeout(15000) });
     const result = await response.json().catch(() => ({}));
-    const names = (result.models || [])
+    const list = (result.models || [])
       .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
       .map(m => String(m.name || '').replace(/^models\//, ''))
-      .filter(n => /^gemini-[\d.]+-flash$/.test(n) && !avoid.has(n));
-    const version = n => Number(n.match(/^gemini-([\d.]+)-flash$/)[1]);
-    names.sort((x, y) => version(y) - version(x));
-    return names[0] || '';
-  } catch (error) { return ''; }
+      .filter(n => /^gemini-[\d.]+-flash(-lite)?$/.test(n))
+      .sort((x, y) => {
+        const vx = Number(x.match(/^gemini-([\d.]+)/)[1]), vy = Number(y.match(/^gemini-([\d.]+)/)[1]);
+        const lx = x.endsWith('-lite') ? 1 : 0, ly = y.endsWith('-lite') ? 1 : 0;
+        return lx - ly || vy - vx;
+      });
+    if (list.length) geminiCandidateCache = { at: Date.now(), list };
+    return list;
+  } catch (error) { return []; }
+}
+
+// Calls Gemini, moving to another model when one is retired (404) or out of quota (429).
+async function geminiGenerate(payload, timeoutMs) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  const queue = [...new Set([geminiModelCache, process.env.GEMINI_MODEL, 'gemini-3.8-flash'].filter(Boolean))];
+  let expanded = false;
+  let lastProblem = '';
+  for (let i = 0; i < queue.length && i < 8; i += 1) {
+    const model = queue[i];
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const response = await fetch(`${GEMINI_BASE}/models/${model}:generateContent`, {
+          method: 'POST',
+          headers: { 'x-goog-api-key': apiKey, 'content-type': 'application/json' },
+          body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(timeoutMs)
+        });
+        const result = await response.json().catch(() => ({}));
+        if (response.ok) {
+          const parts = (result.candidates?.[0]?.content?.parts || []).filter(p => !p.thought && p.text);
+          const text = parts.map(p => p.text).join('').trim();
+          if (text) { geminiModelCache = model; return text; }
+          lastProblem = `empty answer (${result.candidates?.[0]?.finishReason || result.promptFeedback?.blockReason || 'unknown'}) from ${model}`;
+          break;
+        }
+        lastProblem = `HTTP ${response.status} (${model}): ${result.error?.message || 'no message'}`;
+        if (response.status === 404 || response.status === 429) {
+          if (geminiModelCache === model) geminiModelCache = '';
+          break; // try the next model
+        }
+        if ([400, 401, 403].includes(response.status)) throw Object.assign(new Error(lastProblem), { fatal: true });
+        await new Promise(resolve => setTimeout(resolve, 1200 * (attempt + 1)));
+      } catch (error) {
+        if (error.fatal) throw error;
+        lastProblem = error.message || String(error);
+        await new Promise(resolve => setTimeout(resolve, 1200));
+      }
+    }
+    if (i === queue.length - 1 && !expanded) {
+      expanded = true;
+      for (const name of await geminiCandidates(apiKey)) if (!queue.includes(name)) queue.push(name);
+    }
+  }
+  throw new Error(lastProblem || 'Gemini did not answer');
 }
 
 async function askGemini(system, messages, maxTokens, timeoutMs) {
-  const apiKey = process.env.GEMINI_API_KEY;
   const contents = messages.map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: String(m.content) }] }));
-  const failedModels = new Set();
-  let model = geminiModelCache || process.env.GEMINI_MODEL || 'gemini-3.8-flash';
-  let lastProblem = '';
-  for (let attempt = 0; attempt < 5; attempt += 1) {
-    if (attempt) await new Promise(resolve => setTimeout(resolve, Math.min(attempt, 3) * 1200));
-    try {
-      const response = await fetch(`${GEMINI_BASE}/models/${model}:generateContent`, {
-        method: 'POST',
-        headers: { 'x-goog-api-key': apiKey, 'content-type': 'application/json' },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: system }] },
-          contents,
-          generationConfig: { maxOutputTokens: Math.max(maxTokens, 1024) + 2048 }
-        }),
-        signal: AbortSignal.timeout(timeoutMs)
-      });
-      const result = await response.json().catch(() => ({}));
-      if (response.ok) {
-        const text = (result.candidates?.[0]?.content?.parts || []).filter(p => !p.thought).map(p => p.text || '').join('').trim();
-        if (text) { geminiModelCache = model; return text; }
-        lastProblem = `empty answer (${result.candidates?.[0]?.finishReason || result.promptFeedback?.blockReason || 'unknown'})`;
-        continue;
-      }
-      lastProblem = `HTTP ${response.status} (${model}): ${result.error?.message || 'no message'}`;
-      if (response.status === 404) {
-        failedModels.add(model);
-        geminiModelCache = '';
-        const next = await pickGeminiModel(apiKey, failedModels);
-        if (!next) break;
-        model = next;
-        continue;
-      }
-      if ([400, 401, 403].includes(response.status)) break;
-    } catch (error) {
-      lastProblem = error.message || String(error);
-    }
+  try {
+    return await geminiGenerate({
+      systemInstruction: { parts: [{ text: system }] },
+      contents,
+      generationConfig: { maxOutputTokens: Math.max(maxTokens, 1024) + 2048 }
+    }, timeoutMs);
+  } catch (error) {
+    console.error('Tutor AI (Gemini) request failed:', error.message);
+    if (/429|quota/i.test(error.message)) throw new FriendlyError('The tutor has reached its free daily limit. Please try again later.');
+    throw new FriendlyError('The tutor could not answer just now. Please send your question again in a moment.');
   }
-  console.error('Tutor AI (Gemini) request failed:', lastProblem);
-  throw new FriendlyError('The tutor could not answer just now. Please send your question again in a moment.');
 }
 
 async function askClaude(system, messages, maxTokens, timeoutMs) {
@@ -1148,7 +1153,13 @@ function routeTable() {
           sendJson(res, 400, { error: 'Set GEMINI_API_KEY or ANTHROPIC_API_KEY to enable verified news search' });
           return;
         }
-        const candidates = await discoverNews();
+        let candidates;
+        try { candidates = await discoverNews(); } catch (newsError) {
+          console.error('News search failed:', newsError.message);
+          const quota = /429|quota/i.test(newsError.message);
+          sendJson(res, 502, { error: quota ? 'The AI has reached its free limit right now. Try again in a few minutes.' : 'The AI news search failed: ' + String(newsError.message).slice(0, 200) });
+          return;
+        }
         const settings = await dbRows('SELECT AutoPublishOfficial FROM dbo.NewsDeskSettings WHERE Id = 1');
         if (!settings.length) throw new Error('News desk settings are missing; run api/schema.sql first');
         const counts = { published: 0, pending: 0, skipped: 0 };
