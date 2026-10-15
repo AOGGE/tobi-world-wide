@@ -1708,7 +1708,8 @@ $('#autoPub').addEventListener('change',async function(){var enabled=this.checke
   if(result.error){this.checked=!enabled;say($('#newsMsg'),result.error,false)}else say($('#newsMsg'),enabled?'Official-source auto-publish enabled.':'Official-source auto-publish disabled.',true)});
 $('#toRepSignup').addEventListener('click',function(){view('repsignup')});
 $('#repBack').addEventListener('click',function(){view('adminlogin')});
-try{var inviteFromUrl=new URLSearchParams(location.search).get('invite');if(inviteFromUrl)$('#sCode').value=inviteFromUrl.toUpperCase()}catch(x){}\n$('#repForm').addEventListener('submit',async function(e){e.preventDefault();
+try{var inviteFromUrl=new URLSearchParams(location.search).get('invite');if(inviteFromUrl)$('#sCode').value=inviteFromUrl.toUpperCase()}catch(x){}
+$('#repForm').addEventListener('submit',async function(e){e.preventDefault();
   var r=await call('POST','/api/portal/signup',{code:$('#sCode').value,name:$('#sName').value,email:$('#sEmail').value,username:$('#sUser').value,password:$('#sPass').value});
   if(r.error)return say($('#sMsg'),r.error);openReporter()});
 $('#rpTopic').innerHTML=TOPICS.map(function(x){return '<option>'+x.id+'</option>'}).join('');
