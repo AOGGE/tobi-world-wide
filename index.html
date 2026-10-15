@@ -1118,6 +1118,7 @@ function view(id){
 }
 async function enter(u,admin,toSite){
   APP.user=u;APP.admin=!!admin;
+  if(Store.mode==='api'&&!APP.admin){try{var me=await call('GET','/api/me');if(me&&!me.error){APP.tutor=!!me.tutor;if(Array.isArray(me.subjects)&&!(u.subjects&&u.subjects.length))u.subjects=me.subjects}}catch(e){}}
   stopStudentChat();$('#chatNav').hidden=APP.admin;$('#chat').hidden=APP.admin;
   APP.posts=(await Store.posts()).map(normPost);
   try{APP.outlines=await Store.outlines()}catch(e){APP.outlines=[]}
@@ -1674,7 +1675,7 @@ function bt(a,id,l,c){return '<button type="button" class="btn sm '+(c||'')+'" d
 function inviteLink(c){return location.href.split('#')[0].split('?')[0]+'?invite='+c}
 async function drawStaff(){
   var j=await call('GET','/api/admin/staff');if(j.error)return;$('#staffPanel').hidden=false;
-  $('#aiInfo').textContent=j.ai?'AI search verifies that sources open and match each headline. Official allowlisted sources may auto-publish; other stories wait for review. Students registered: '+j.students+'.':'AI is OFF. Configure ANTHROPIC_API_KEY on the server to enable verified news search.';
+  $('#aiInfo').textContent=j.ai?'AI search verifies that sources open and match each headline. Official allowlisted sources may auto-publish; other stories wait for review. Students registered: '+j.students+'.':'AI is OFF. Add GEMINI_API_KEY on the server to enable verified news search.';
   $('#autoPub').checked=!!j.settings.autoPublish;
   var local=Store.mode!=='api';$('#newsRun').parentNode.hidden=local;$('#aiInfo').parentNode.querySelector('h3').hidden=local;$('#aiInfo').hidden=local;$('#pendNews').hidden=local;
   $('#newsRun').disabled=!j.ai;

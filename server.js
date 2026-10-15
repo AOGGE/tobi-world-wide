@@ -398,24 +398,43 @@ function officialHost(host) {
   return configured.some(domain => host === domain || host.endsWith(`.${domain}`));
 }
 
+const NEWS_PROMPT = 'Search for recent Nigerian university, admissions, scholarships, JAMB, WAEC, or campus announcements. Return JSON only in the shape {"items":[{"headline":string,"summary":string,"body":string,"topic":"Admissions|Scholarships|JAMB|WAEC|Campus","school":string,"source_url":string}]}. Use only pages found by web search, make the headline closely match the page title, and do not invent details. Keep summaries under 200 characters and include a concise factual body.';
+
 async function discoverNews() {
+  let searchedUrls = null;
+  const textParts = [];
+  if (process.env.GEMINI_API_KEY) {
+    const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+    const response = await fetch(`${GEMINI_BASE}/models/${model}:generateContent`, {
+      method: 'POST',
+      headers: { 'x-goog-api-key': process.env.GEMINI_API_KEY, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: NEWS_PROMPT }] }],
+        tools: [{ google_search: {} }],
+        generationConfig: { maxOutputTokens: 8192 }
+      }),
+      signal: AbortSignal.timeout(85000)
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error?.message || `Gemini news search failed (HTTP ${response.status})`);
+    for (const part of result.candidates?.[0]?.content?.parts || []) if (!part.thought && part.text) textParts.push(part.text);
+  } else {
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error('Set ANTHROPIC_API_KEY to enable verified news search');
+  if (!apiKey) throw new Error('Set GEMINI_API_KEY or ANTHROPIC_API_KEY to enable verified news search');
   const response = await fetch(ANTHROPIC_URL, {
     method: 'POST',
     headers: anthropicHeaders(apiKey),
     body: JSON.stringify({
       model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514',
       max_tokens: 2200,
-      messages: [{ role: 'user', content: 'Search for recent Nigerian university, admissions, scholarships, JAMB, WAEC, or campus announcements. Return JSON only in the shape {"items":[{"headline":string,"summary":string,"body":string,"topic":"Admissions|Scholarships|JAMB|WAEC|Campus","school":string,"source_url":string}]}. Use only pages found by web search, make the headline closely match the page title, and do not invent details. Keep summaries under 200 characters and include a concise factual body.' }],
+      messages: [{ role: 'user', content: NEWS_PROMPT }],
       tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 5 }]
     }),
     signal: AbortSignal.timeout(75000)
   });
   const result = await response.json();
   if (!response.ok) throw new Error(result.error?.message || 'Anthropic news search failed');
-  const searchedUrls = new Set();
-  const textParts = [];
+  searchedUrls = new Set();
   for (const block of result.content || []) {
     if (block.type === 'text') {
       textParts.push(block.text || '');
@@ -423,6 +442,7 @@ async function discoverNews() {
     } else if (block.type === 'web_search_tool_result' && Array.isArray(block.content)) {
       for (const item of block.content) if (item.type === 'web_search_result' && item.url) searchedUrls.add(item.url);
     }
+  }
   }
   const responseText = textParts.join('\n');
   const start = responseText.indexOf('{');
@@ -434,7 +454,7 @@ async function discoverNews() {
   for (const item of items.slice(0, 10)) {
     const headline = String(item.headline || '').trim().slice(0, 140);
     const sourceUrl = String(item.source_url || '').trim();
-    if (!headline || !searchedUrls.has(sourceUrl)) continue;
+    if (!headline || !/^https?:\/\//i.test(sourceUrl) || (searchedUrls && !searchedUrls.has(sourceUrl))) continue;
     try {
       const source = await fetchArticlePage(sourceUrl);
       const terms = headline.toLowerCase().match(/[a-z0-9]{3,}/g) || [];
@@ -1058,7 +1078,7 @@ function routeTable() {
         const totals = await dbRows('SELECT COUNT(*) AS Total FROM dbo.StudentProfiles');
         if (!settings.length || !totals.length) throw new Error('Database schema is not initialized; run api/schema.sql first');
         sendJson(res, 200, {
-          ai: !!process.env.ANTHROPIC_API_KEY,
+          ai: aiEnabled(),
           students: totals[0].Total,
           settings: { autoPublish: !!settings[0].AutoPublishOfficial },
           pendingNews: pending.map(row => ({ id: row.Id, h: row.Headline, src: row.SourceUrl, host: row.SourceHost, official: !!row.IsOfficialSource, created: row.CreatedAt })),
@@ -1091,8 +1111,8 @@ function routeTable() {
           sendJson(res, current ? 403 : 401, { error: 'admin_required' });
           return;
         }
-        if (!process.env.ANTHROPIC_API_KEY) {
-          sendJson(res, 400, { error: 'Set ANTHROPIC_API_KEY to enable verified news search' });
+        if (!aiEnabled()) {
+          sendJson(res, 400, { error: 'Set GEMINI_API_KEY or ANTHROPIC_API_KEY to enable verified news search' });
           return;
         }
         const candidates = await discoverNews();
