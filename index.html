@@ -1742,7 +1742,11 @@ var _dg=drawGuide;drawGuide=function(){_dg();if(APP.user&&APP.user.aiOutline&&!$
   if(window.TWW_API_BASE){
     Store=ApiStore;
   } else {
-    try{var probe=apiUrl('/api/health');var hc=await fetch(probe);var hj=hc.ok?await hc.json():null;if(hj&&hj.ok===true){Store=ApiStore}}catch(e){}
+    var tries=/^https?:$/.test(location.protocol)?6:1;
+    for(var ti=0;ti<tries&&Store!==ApiStore;ti++){
+      if(ti)await new Promise(function(r){setTimeout(r,5000)});
+      try{var probe=apiUrl('/api/health');var ctl=new AbortController();var tm=setTimeout(function(){ctl.abort()},15000);var hc=await fetch(probe,{signal:ctl.signal});clearTimeout(tm);var hj=hc.ok?await hc.json():null;if(hj&&hj.ok===true){Store=ApiStore}}catch(e){}
+    }
   }
   var st=await Store.init();
   if(Store===ApiStore){var rn=$('#regNote');if(rn)rn.textContent='Your account is saved securely on our server, so you can log in from any device. Do not reuse an important password.'}
