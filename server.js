@@ -1533,7 +1533,7 @@ function routeTable() {
       }
 
       if (pathname === '/admin' || pathname === '/admin-login.html') {
-        const file = fs.existsSync(ADMIN_FILE) ? ADMIN_FILE : path.join(__dirname, 'admin.html');
+        const file = fs.existsSync(ADMIN_FILE) ? ADMIN_FILE : FRONTEND_FILE;
         if (fs.existsSync(file)) {
           serveStaticFile(res, file);
         } else {

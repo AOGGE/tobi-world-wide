@@ -1827,6 +1827,7 @@ var _dg=drawGuide;drawGuide=function(){_dg();if(APP.user&&APP.user.aiOutline&&!$
   else if(iv){$('#sCode').value=iv.toUpperCase();view('repsignup')}
   else if(st.role==='rep'){await openReporter()}
   else if(Store.mode!=='api'&&(function(){try{return sessionStorage.getItem('tobi_rep')}catch(e){}})()){await openReporter()}
+  else if(/^\/admin\/?$/.test(location.pathname)||location.hash==='#admin'){$('#goAdmin').click()}
   else view('welcome');
 })();
 </script>
