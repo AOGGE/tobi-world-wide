@@ -400,15 +400,73 @@ function officialHost(host) {
 
 const NEWS_PROMPT = 'Search for recent Nigerian university, admissions, scholarships, JAMB, WAEC, or campus announcements. Return JSON only in the shape {"items":[{"headline":string,"summary":string,"body":string,"topic":"Admissions|Scholarships|JAMB|WAEC|Campus","school":string,"source_url":string}]}. Use only pages found by web search, make the headline closely match the page title, and do not invent details. Keep summaries under 200 characters and include a concise factual body.';
 
+const NEWS_SOURCE_PAGES = () => (process.env.TWW_NEWS_SOURCES || 'https://www.jamb.gov.ng/,https://nuc.edu.ng/,https://www.waecnigeria.org/,https://www.unilorin.edu.ng/').split(',').map(v => v.trim()).filter(Boolean);
+
+async function collectOfficialLinks() {
+  const links = [];
+  for (const page of NEWS_SOURCE_PAGES()) {
+    try {
+      await validatePublicUrl(page);
+      const response = await fetch(page, { headers: { 'User-Agent': 'TobiWorldWide/1.0 (news source reader)' }, signal: AbortSignal.timeout(12000) });
+      if (!response.ok) continue;
+      const html = (await response.text()).slice(0, 1_500_000);
+      const host = new URL(response.url || page).hostname.replace(/^www\./, '');
+      const seen = new Set();
+      for (const m of html.matchAll(/<a\b[^>]*href=["']([^"'#]+)["'][^>]*>([\s\S]*?)<\/a\s*>/gi)) {
+        const text = decodeHtml(m[2].replace(/<[^>]*>/g, ' ')).replace(/\s+/g, ' ').trim();
+        if (text.length < 30 || text.length > 200) continue;
+        let url;
+        try { url = new URL(m[1], response.url || page); } catch (e) { continue; }
+        if (!/^https?:$/.test(url.protocol) || url.hostname.replace(/^www\./, '') !== host || seen.has(url.href)) continue;
+        seen.add(url.href);
+        links.push({ text, url: url.href });
+        if (seen.size >= 25) break;
+      }
+    } catch (error) { continue; }
+  }
+  return links;
+}
+
+// Fallback used when Google Search grounding is unavailable: read official pages ourselves, then let Gemini write the items.
+async function discoverFromOfficialPages() {
+  const links = await collectOfficialLinks();
+  if (!links.length) throw new Error('No official news pages could be read');
+  const pick = await geminiGenerate({
+    contents: [{ role: 'user', parts: [{ text: 'From these links from official Nigerian education websites, choose up to 5 that are real news or announcements about admissions, scholarships, JAMB, WAEC, or campus life (not menu items or generic pages). Return JSON only: {"urls":[string]} using the exact URLs given.\n' + links.map(l => `${l.url} | ${l.text}`).join('\n') }] }],
+    generationConfig: { maxOutputTokens: 1024 }
+  }, 40000);
+  const allowed = new Set(links.map(l => l.url));
+  let urls = [];
+  try { urls = (JSON.parse(pick.slice(pick.indexOf('{'), pick.lastIndexOf('}') + 1)).urls || []).filter(u => allowed.has(u)).slice(0, 5); } catch (e) { urls = []; }
+  const pages = [];
+  for (const url of urls) {
+    try {
+      const page = await fetchArticlePage(url);
+      if (page.title) pages.push({ url: page.finalUrl, title: page.title, excerpt: page.text.slice(0, 3500) });
+    } catch (e) { continue; }
+  }
+  if (!pages.length) throw new Error('No official news pages could be opened');
+  return geminiGenerate({
+    contents: [{ role: 'user', parts: [{ text: 'Write news items from these official pages. Use ONLY facts in the excerpt; do not invent details. Return JSON only in the shape {"items":[{"headline":string,"summary":string,"body":string,"topic":"Admissions|Scholarships|JAMB|WAEC|Campus","school":string,"source_url":string}]}. Copy each page title as the headline, keep the summary under 200 characters, and give a concise factual body.\n' + JSON.stringify(pages) }] }],
+    generationConfig: { maxOutputTokens: 6000 }
+  }, 60000);
+}
+
 async function discoverNews() {
   let searchedUrls = null;
   const textParts = [];
   if (process.env.GEMINI_API_KEY) {
-    const text = await geminiGenerate({
-      contents: [{ role: 'user', parts: [{ text: NEWS_PROMPT }] }],
-      tools: [{ google_search: {} }],
-      generationConfig: { maxOutputTokens: 8192 }
-    }, 85000);
+    let text;
+    try {
+      text = await geminiGenerate({
+        contents: [{ role: 'user', parts: [{ text: NEWS_PROMPT }] }],
+        tools: [{ google_search: {} }],
+        generationConfig: { maxOutputTokens: 8192 }
+      }, 85000);
+    } catch (searchError) {
+      console.error('Gemini web search unavailable, reading official pages instead:', searchError.message);
+      text = await discoverFromOfficialPages();
+    }
     textParts.push(text);
   } else {
   const apiKey = process.env.ANTHROPIC_API_KEY;
