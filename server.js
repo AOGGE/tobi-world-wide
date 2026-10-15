@@ -398,7 +398,71 @@ function officialHost(host) {
   return configured.some(domain => host === domain || host.endsWith(`.${domain}`));
 }
 
-async function discoverNews() {
+async function discoverNewsWithGemini() {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error('Set GEMINI_API_KEY to enable Gemini news search');
+  const model = process.env.GEMINI_NEWS_MODEL || process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+  const prompt = 'Search the web for recent Nigerian university, admissions, scholarships, JAMB, WAEC, or campus announcements. Return JSON only in the shape {"items":[{"headline":string,"summary":string,"body":string,"topic":"Admissions|Scholarships|JAMB|WAEC|Campus","school":string,"source_url":string}]}. Only use pages found by Google Search grounding, and set source_url to an exact URL in the grounded results. Do not invent details. Keep summaries under 200 characters and include a concise factual body.';
+  const response = await fetch(`${GEMINI_BASE}/models/${encodeURIComponent(model)}:generateContent`, {
+    method: 'POST',
+    headers: { 'x-goog-api-key': apiKey, 'content-type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      tools: [{ google_search: {} }],
+      generationConfig: { temperature: 0.2, maxOutputTokens: 4096 }
+    }),
+    signal: AbortSignal.timeout(75000)
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    console.error('News desk Gemini search failed:', response.status, result.error?.message || 'no message');
+    throw new Error(`Gemini news search failed (HTTP ${response.status}): ${result.error?.message || 'no message'}`);
+  }
+  const candidate = result.candidates?.[0];
+  const responseText = (candidate?.content?.parts || []).filter(part => !part.thought).map(part => part.text || '').join('').trim();
+  const searchedUrls = new Set((candidate?.groundingMetadata?.groundingChunks || []).map(chunk => chunk.web?.uri).filter(Boolean));
+  if (!responseText) throw new Error('Gemini Google Search returned no news text');
+  let parsed;
+  try {
+    const cleaned = responseText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+    const jsonStart = cleaned.indexOf('{');
+    const jsonEnd = cleaned.lastIndexOf('}');
+    if (jsonStart < 0 || jsonEnd <= jsonStart) throw new Error('missing JSON object');
+    parsed = JSON.parse(cleaned.slice(jsonStart, jsonEnd + 1));
+  } catch (error) {
+    console.error('News desk Gemini response was not valid JSON:', error.message || String(error));
+    throw new Error('Gemini news search did not return a usable news list');
+  }
+  const topics = new Set(['Admissions', 'Scholarships', 'JAMB', 'WAEC', 'Campus']);
+  const verified = [];
+  for (const item of (Array.isArray(parsed.items) ? parsed.items : []).slice(0, 10)) {
+    const headline = String(item.headline || '').trim().slice(0, 140);
+    const sourceUrl = String(item.source_url || '').trim();
+    if (!headline || !sourceUrl || !searchedUrls.has(sourceUrl)) continue;
+    try {
+      const source = await fetchArticlePage(sourceUrl);
+      const terms = headline.toLowerCase().match(/[a-z0-9]{3,}/g) || [];
+      const matched = terms.filter(term => source.title.toLowerCase().includes(term)).length;
+      const required = Math.max(1, Math.ceil(terms.length * 0.45));
+      if (!source.title || (matched < required && !source.text.includes(headline.toLowerCase()))) continue;
+      const finalUrl = new URL(source.finalUrl);
+      const summary = String(item.summary || '').trim().slice(0, 200);
+      const body = String(item.body || '').trim().slice(0, 5000);
+      if (!summary || !body) continue;
+      verified.push({
+        topic: topics.has(item.topic) ? item.topic : 'Campus', headline, summary, body,
+        school: String(item.school || 'All schools').trim().slice(0, 200) || 'All schools',
+        sourceUrl: finalUrl.toString(), sourceTitle: source.title, sourceHost: finalUrl.hostname,
+        official: officialHost(finalUrl.hostname)
+      });
+    } catch (error) {
+      console.error('News desk source verification failed:', sourceUrl, error.message || String(error));
+    }
+  }
+  return verified;
+}
+
+async function discoverNewsWithAnthropic() {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error('Set ANTHROPIC_API_KEY to enable verified news search');
   const response = await fetch(ANTHROPIC_URL, {
@@ -456,6 +520,13 @@ async function discoverNews() {
     }
   }
   return verified;
+}
+
+
+async function discoverNews() {
+  if (process.env.GEMINI_API_KEY) return discoverNewsWithGemini();
+  if (process.env.ANTHROPIC_API_KEY) return discoverNewsWithAnthropic();
+  throw new Error('Set GEMINI_API_KEY or ANTHROPIC_API_KEY to enable verified news search');
 }
 
 function articleHtml(body) {
@@ -603,7 +674,7 @@ const aiEnabled = () => !!(process.env.GEMINI_API_KEY || process.env.ANTHROPIC_A
 
 async function askGemini(system, messages, maxTokens, timeoutMs) {
   const apiKey = process.env.GEMINI_API_KEY;
-  const models = [...new Set([process.env.GEMINI_MODEL, 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-flash-latest'].filter(Boolean))];
+  const models = [...new Set([process.env.GEMINI_MODEL, 'gemini-2.5-flash', 'gemini-flash-latest'].filter(Boolean))];
   const contents = messages.map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: String(m.content) }] }));
   let lastProblem = '';
   for (let attempt = 0; attempt < 4; attempt += 1) {
@@ -1058,7 +1129,7 @@ function routeTable() {
         const totals = await dbRows('SELECT COUNT(*) AS Total FROM dbo.StudentProfiles');
         if (!settings.length || !totals.length) throw new Error('Database schema is not initialized; run api/schema.sql first');
         sendJson(res, 200, {
-          ai: !!process.env.ANTHROPIC_API_KEY,
+          ai: aiEnabled(),
           students: totals[0].Total,
           settings: { autoPublish: !!settings[0].AutoPublishOfficial },
           pendingNews: pending.map(row => ({ id: row.Id, h: row.Headline, src: row.SourceUrl, host: row.SourceHost, official: !!row.IsOfficialSource, created: row.CreatedAt })),
@@ -1091,8 +1162,8 @@ function routeTable() {
           sendJson(res, current ? 403 : 401, { error: 'admin_required' });
           return;
         }
-        if (!process.env.ANTHROPIC_API_KEY) {
-          sendJson(res, 400, { error: 'Set ANTHROPIC_API_KEY to enable verified news search' });
+        if (!aiEnabled()) {
+          sendJson(res, 400, { error: 'Set GEMINI_API_KEY or ANTHROPIC_API_KEY to enable verified news search' });
           return;
         }
         const candidates = await discoverNews();
@@ -1407,6 +1478,7 @@ function routeTable() {
         return;
       }
       const message = err.message || String(err);
+      console.error('[TWW API] request failed', { method: req.method, path: pathname, message, stack: err.stack });
       const status = message === 'Invalid JSON' ? 400
         : message === 'Request body too large' ? 413
           : message.startsWith('Set DATABASE_URL') ? 503 : 500;
