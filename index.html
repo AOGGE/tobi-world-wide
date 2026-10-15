@@ -818,10 +818,10 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
     if (admin) admin.addEventListener('click', function () {
       var fields = document.getElementById('adminFields');
       var note = document.getElementById('adminNote');
-      if (fields) fields.hidden = true;
+      if (fields) fields.hidden = false;
       if (note) {
-        note.hidden = false;
-        note.textContent = 'Administrator access is available to the site owner only.';
+        note.hidden = true;
+        note.textContent = '';
       }
       showView('adminlogin');
     });
