@@ -1686,7 +1686,7 @@ async function drawStaff(){
 var _dm=drawManage;drawManage=function(){_dm();drawStaff()};
 $('#staffPanel').addEventListener('click',async function(e){
   var b=e.target.closest('button');if(!b)return;var a=b.dataset.act,id=b.dataset.id,m=$('#invMsg');
-  if(b.id==='genInv'){b.disabled=true;m.textContent='Generating invite code...';var j=await call('POST','/api/portal/admin/invites');b.disabled=false;if(j.code){m.textContent='New invite code: '+j.code+' (link: '+inviteLink(j.code)+')'}drawStaff();return}
+  if(b.id==='genInv'){b.disabled=true;m.textContent='Generating invite code...';var j=await call('POST','/api/portal/admin/invites');b.disabled=false;if(j.code){m.textContent='New invite code: '+j.code+' (link: '+inviteLink(j.code)+')'}else{m.textContent='Could not generate invite code: '+(j.error||'Please try again.')}drawStaff();return}
   if(b.id==='newsRun'){b.disabled=true;say($('#newsMsg'),'Searching and checking source pages...',true);var r=await call('POST','/api/admin/news/run');b.disabled=false;
     say($('#newsMsg'),r.error||('Published '+r.published+' official items, queued '+r.pending+' for review, skipped '+r.skipped+'.'),!r.error);if(!r.error){await refreshPosts();drawManage()}return}
   if(!a)return;
