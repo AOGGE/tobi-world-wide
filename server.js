@@ -638,7 +638,7 @@ async function geminiCandidates(apiKey) {
 // Calls Gemini, moving to another model when one is retired (404) or out of quota (429).
 async function geminiGenerate(payload, timeoutMs) {
   const apiKey = process.env.GEMINI_API_KEY;
-  const queue = [...new Set([geminiModelCache, process.env.GEMINI_MODEL, 'gemini-3.8-flash'].filter(Boolean))];
+  const queue = [...new Set([geminiModelCache, process.env.GEMINI_MODEL, 'gemini-flash-latest', 'gemini-3.8-flash'].filter(Boolean))];
   let expanded = false;
   let lastProblem = '';
   for (let i = 0; i < queue.length && i < 8; i += 1) {
