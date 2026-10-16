@@ -1,5 +1,6 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>Tobi World Wide Educational Consult</title>
+<link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#3A2873"><link rel="apple-touch-icon" href="/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
@@ -455,6 +456,7 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
       <div class="field" id="rOtherWrap" hidden><label for="rOther">Name of your school</label><input id="rOther" type="text" maxlength="100"></div>
       <div class="field"><label for="rMatric">Matric number</label><input id="rMatric" type="text" maxlength="25" autocomplete="off" placeholder="As written on your student ID"></div>
       <div class="field"><label for="rProg">Course of study</label><input id="rProg" type="text" list="progList" maxlength="80" autocomplete="off" placeholder="e.g. Social Work"></div>
+      <div class="field"><label for="rPhone">WhatsApp number</label><input id="rPhone" type="tel" inputmode="tel" maxlength="20" autocomplete="tel" placeholder="e.g. 08012345678"></div>
       <div class="field"><label for="rPass">Password (at least 8 characters)</label><div class="pw"><input id="rPass" type="password" autocomplete="new-password"><button type="button" data-toggle="rPass">Show</button></div></div>
       <div class="field"><label for="rPass2">Confirm password</label><input id="rPass2" type="password" autocomplete="new-password"></div>
       <button class="btn" type="submit" id="rBtn">Create account</button>
@@ -562,6 +564,7 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
 <h3>Registered students <span id="stuCount" style="font-weight:400;font-size:14px"></span></h3>
 <div class="admin-actions"><input id="stuSearch" type="search" placeholder="Search name, email, school, matric" style="flex:1;min-width:180px"><button class="btn sm" id="stuRefresh" type="button">Refresh</button><button class="btn sm" id="stuCsv" type="button">Download CSV</button></div>
 <p class="note-small" id="stuMsg" style="text-align:left"></p>
+<p id="stuStats" style="margin:8px 0 0;font-size:14px"></p>
 <div id="stuList" style="margin-top:10px;display:grid;gap:8px;max-height:480px;overflow:auto"></div>
 </div>
     <div class="admin" style="border-style:solid;margin-bottom:20px" id="staffPanel" hidden>
@@ -1145,7 +1148,7 @@ function openPost(id){
   var dlBox=daysLeft(p.dl)!==null?'<div class="callout" style="margin-top:0;margin-bottom:20px"><b>Deadline:</b> '+esc(fmtDate(p.dl))+' · '+esc(dlText(daysLeft(p.dl)))+'</div>':'';
   var share='<div class="share"><button class="btn ghost" type="button" id="saveBtn" data-id="'+esc(p.id)+'">'+(isSaved(p.id)?'★ Saved':'☆ Save')+'</button>'+
     '<a class="btn wa" target="_blank" rel="noopener" href="https://wa.me/?text='+encodeURIComponent(waShareText(p))+'">Share on WhatsApp</a>'+
-    '<button class="btn ghost" type="button" id="copyBtn">Copy link</button></div>';
+    '<button class="btn ghost" type="button" id="copyBtn">Copy link</button>'+(daysLeft(p.dl)!==null&&daysLeft(p.dl)>=0?'<button class="btn ghost" type="button" id="remBtn" data-id="'+esc(p.id)+'">Remind me</button>':'')+'</div>';
   $('#paper').innerHTML='<button class="icon-btn close" aria-label="Close article">✕</button><div class="chips"><span class="chip">'+esc(p.t)+'</span>'+(p.school&&p.school!==ALL?'<span class="chip gold">'+esc(shortName(p.school))+'</span>':'')+'</div><h2>'+esc(p.h)+'</h2><div class="byline"><span>By '+esc(p.by||'Tobi')+'</span><span>·</span><span>'+esc(p.date||'')+'</span><span>·</span><span>'+p.r+' min read</span></div>'+dlBox+body+share+'<div class="callout" style="margin-top:28px"><b>Want more like this?</b> Join the channel to get new updates first.</div>';
   var r=$('#reader');r.classList.add('open');r.scrollTop=0;document.body.style.overflow='hidden';
   r.querySelector('.close').focus();
@@ -1242,10 +1245,12 @@ $('#regForm').addEventListener('submit',async function(e){
   var matric=clean($('#rMatric').value).toUpperCase(),programme=clean($('#rProg').value);
   if(matric.length<4||!/^[A-Z0-9][A-Z0-9\/\-. ]*$/.test(matric))return say(msg,'Enter your matric number, for example 25/55CA001.');
   if(programme.length<2)return say(msg,'Enter your course of study.');
+  var phone=clean($('#rPhone').value),phoneDigits=phone.replace(/\D/g,'');
+  if(phoneDigits.length<10||phoneDigits.length>15)return say(msg,'Enter your WhatsApp number, for example 08012345678.');
   if(p1.length<8)return say(msg,'Password must be at least 8 characters.');
   if(p1!==p2)return say(msg,'Passwords do not match.');
   $('#rBtn').disabled=true;
-  var r=await Store.register({name:name,email:email,school:school,matric:matric,programme:programme,password:p1});
+  var r=await Store.register({name:name,email:email,school:school,matric:matric,programme:programme,phone:phone,password:p1});
   $('#rBtn').disabled=false;
   if(r.error)return say(msg,r.error);
   $('#regForm').reset();$('#rOtherWrap').hidden=true;say(msg,'',true);
@@ -1334,7 +1339,7 @@ function drawManage(){
   var box=$('#manageList');if(!box)return;
   var list=sortedPosts();
   box.innerHTML=list.length?list.map(function(p){
-    return '<div class="mrow"><div class="mt"><b>'+esc(p.h)+'</b><span>'+esc((p.school&&p.school!==ALL?shortName(p.school):'All schools')+' · '+p.t+' · '+(p.date||''))+'</span></div><button type="button" class="btn danger sm mdel" data-id="'+esc(p.id)+'">Delete</button></div>'}).join(''):'<p class="note-small" style="text-align:left">No posts yet.</p>';
+    return '<div class="mrow"><div class="mt"><b>'+esc(p.h)+'</b><span>'+esc((p.school&&p.school!==ALL?shortName(p.school):'All schools')+' · '+p.t+' · '+(p.date||''))+'</span></div><div style="display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="btn sm mcopy" data-id="'+esc(p.id)+'">Copy post</button><button type="button" class="btn danger sm mdel" data-id="'+esc(p.id)+'">Delete</button></div></div>'}).join(''):'<p class="note-small" style="text-align:left">No posts yet.</p>';
 }
 
 /* ---- study guide ---- */
@@ -1501,6 +1506,12 @@ $('#tForm').addEventListener('submit',async function(e){
 document.addEventListener('click',async function(e){
   var f=e.target.closest('#filters button, .topic');
   if(f){APP.topic=f.dataset.t;drawFilters();drawPosts();if(f.classList.contains('topic'))$('#blog').scrollIntoView();return}
+  var mc=e.target.closest('.mcopy');
+  if(mc){
+    var pp=APP.posts.filter(function(x){return String(x.id)===String(mc.dataset.id)})[0];
+    if(pp){try{await navigator.clipboard.writeText(waShareText(pp));toast('Post copied. Paste it in WhatsApp.')}catch(err){toast('Could not copy. Use Share on WhatsApp inside the post.')}}
+    return;
+  }
   var d=e.target.closest('.mdel');
   if(d){
     if(!d.dataset.sure){d.dataset.sure='1';d.textContent='Click again to delete';return}
@@ -1517,6 +1528,16 @@ document.addEventListener('click',async function(e){
   }
   var sv=e.target.closest('#saveBtn');
   if(sv){var on=toggleSaved(sv.dataset.id);sv.textContent=on?'★ Saved':'☆ Save';toast(on?'Saved on this device':'Removed from saved');drawFilters();drawPosts();return}
+  var rb=e.target.closest('#remBtn');
+  if(rb){
+    var rp=APP.posts.filter(function(x){return String(x.id)===String(rb.dataset.id)})[0];
+    if(rp&&/^\d{4}-\d{2}-\d{2}$/.test(rp.dl||'')){
+      var ymd=rp.dl.replace(/-/g,''),nx=new Date(+rp.dl.slice(0,4),+rp.dl.slice(5,7)-1,+rp.dl.slice(8,10)+1),nxs=nx.getFullYear()+('0'+(nx.getMonth()+1)).slice(-2)+('0'+nx.getDate()).slice(-2);
+      var ics=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Tobi World Wide//EN','BEGIN:VEVENT','UID:tww-'+rp.id+'-'+ymd+'@tobi-world-wide','DTSTAMP:'+new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d+/,''),'DTSTART;VALUE=DATE:'+ymd,'DTEND;VALUE=DATE:'+nxs,'SUMMARY:Deadline: '+String(rp.h).replace(/[\r\n,;]/g,' '),'DESCRIPTION:'+location.origin,'BEGIN:VALARM','ACTION:DISPLAY','DESCRIPTION:Deadline tomorrow','TRIGGER:-P1D','END:VALARM','BEGIN:VALARM','ACTION:DISPLAY','DESCRIPTION:Deadline in 3 days','TRIGGER:-P3D','END:VALARM','END:VEVENT','END:VCALENDAR'].join('\r\n');
+      var bl=new Blob([ics],{type:'text/calendar;charset=utf-8'}),an=document.createElement('a');an.href=URL.createObjectURL(bl);an.download='deadline-'+rp.id+'.ics';document.body.appendChild(an);an.click();setTimeout(function(){URL.revokeObjectURL(an.href);an.remove()},500);toast('Reminder file downloaded. Open it to add it to your calendar.');
+    }
+    return;
+  }
   var cp=e.target.closest('#copyBtn');
   if(cp){
     var link=location.href.split('#')[0];
@@ -1698,7 +1719,7 @@ var ApiStore={mode:'api',
     var current=student&&!student.error?student:(isPortal?portal:null);
     var user=current?{id:current.id||0,name:current.name,email:current.email,school:current.school||'Admin',matric:current.matric||'',programme:current.programme||'',subjects:current.subjects||[],aiOutline:current.aiOutline||''}:null;
     ApiStore._d={posts:posts,schools:schools};return {user:user,admin:isPortal||!!(student&&!student.error&&student.admin),extras:Array.isArray(schools)?schools.map(function(x){return x.Name||x.name}).filter(Boolean):[],tutor:!!(student&&!student.error&&student.tutor),role:isPortal?'admin':null}},
-  async register(a){var universityId=await findUniversityId(a.school);if(!universityId)return {error:'Select a university from the official list.'};return call('POST','/api/auth/register',{name:a.name,email:a.email,password:a.password,universityId:universityId,matric:a.matric||'',programme:a.programme||''})},
+  async register(a){var universityId=await findUniversityId(a.school);if(!universityId)return {error:'Select a university from the official list.'};return call('POST','/api/auth/register',{name:a.name,email:a.email,password:a.password,universityId:universityId,matric:a.matric||'',programme:a.programme||'',phone:a.phone||''})},
   async login(a){var j=await call('POST','/api/auth/login',a);if(j.token)saveApiToken(j.token,'student',a.keep!==false);return j},
   async logout(){var role='';try{role=localStorage.getItem('tww_api_role')||''}catch(e){}var result=await call('POST',role==='admin'?'/api/portal/logout':'/api/auth/logout');clearApiToken();return result},
   async setSchool(s){var universityId=await findUniversityId(s);if(!universityId)return {error:'Select a university from the official list.'};return call('POST','/api/me/university',{universityId:universityId})},
@@ -1719,11 +1740,22 @@ function row(t,s,btns){return '<div class="mrow"><div class="mt"><b>'+t+'</b><sp
 function bt(a,id,l,c){return '<button type="button" class="btn sm '+(c||'')+'" data-act="'+a+'" data-id="'+esc(id)+'">'+l+'</button>'}
 function inviteLink(c){return location.href.split('#')[0].split('?')[0]+'?invite='+c}
 var STUDENTS=[];
+function waLink(phone){return phone?'https://wa.me/'+String(phone).replace(/\D/g,''):''}
 function drawStudentList(){
   var q=($('#stuSearch').value||'').toLowerCase().trim();
-  var list=STUDENTS.filter(function(x){return !q||[x.name,x.email,x.school,x.matric,x.programme].join(' ').toLowerCase().indexOf(q)>-1});
+  var list=STUDENTS.filter(function(x){return !q||[x.name,x.email,x.school,x.matric,x.programme,x.phone].join(' ').toLowerCase().indexOf(q)>-1});
   $('#stuCount').textContent='('+STUDENTS.length+' total'+(q?', '+list.length+' shown':'')+')';
-  $('#stuList').innerHTML=list.length?list.map(function(x){return row(esc(x.name),esc(x.email)+' · '+esc(x.school)+(x.matric?' · Matric: '+esc(x.matric):'')+(x.programme?' · '+esc(x.programme):'')+' · Joined '+esc(String(x.joined||'').slice(0,10)),'')}).join(''):'<p>No students found.</p>';
+  $('#stuList').innerHTML=list.length?list.map(function(x){
+    var wa=x.phone?'<a class="btn sm" target="_blank" rel="noopener" href="'+esc(waLink(x.phone))+'">WhatsApp</a>':'';
+    var btns=wa+bt('st-reset',x.id,'Reset password')+bt('st-susp',x.id,x.suspended?'Unsuspend':'Suspend')+bt('st-del',x.id,'Delete','danger');
+    return row(esc(x.name)+(x.suspended?' (suspended)':''),esc(x.email)+(x.phone?' · '+esc(x.phone):'')+' · '+esc(x.school)+(x.matric?' · Matric: '+esc(x.matric):'')+(x.programme?' · '+esc(x.programme):'')+' · Joined '+esc(String(x.joined||'').slice(0,10)),btns)}).join(''):'<p>No students found.</p>';
+  drawStudentStats();
+}
+function drawStudentStats(){
+  var now=Date.now(),day=86400000,today=0,week=0,by={};
+  STUDENTS.forEach(function(x){var t=new Date(x.joined).getTime();if(now-t<day)today++;if(now-t<7*day)week++;by[x.school]=(by[x.school]||0)+1});
+  var top=Object.keys(by).sort(function(a,b){return by[b]-by[a]}).slice(0,8).map(function(k){return esc(shortName(k))+' <b>'+by[k]+'</b>'}).join(' · ');
+  $('#stuStats').innerHTML=STUDENTS.length?'<b>'+STUDENTS.length+'</b> total · <b>'+today+'</b> in the last 24 hours · <b>'+week+'</b> in the last 7 days'+(top?'<br>Top universities: '+top:''):'';
 }
 async function drawStudents(){
   if(Store.mode!=='api'){$('#stuPanel').hidden=true;return}
@@ -1734,11 +1766,34 @@ async function drawStudents(){
 }
 function studentsCsv(){
   var cell=function(v){v=String(v==null?'':v);if(/^[=+\-@]/.test(v))v="'"+v;return '"'+v.replace(/"/g,'""')+'"'};
-  var lines=[['Name','Email','University','Matric','Course of study','Joined'].map(cell).join(',')].concat(STUDENTS.map(function(x){return [x.name,x.email,x.school,x.matric,x.programme,String(x.joined||'').slice(0,10)].map(cell).join(',')}));
+  var lines=[['Name','Email','WhatsApp','University','Matric','Course of study','Joined','Status'].map(cell).join(',')].concat(STUDENTS.map(function(x){return [x.name,x.email,x.phone,x.school,x.matric,x.programme,String(x.joined||'').slice(0,10),x.suspended?'Suspended':'Active'].map(cell).join(',')}));
   var blob=new Blob(['\uFEFF'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'});
   var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='tobi-students-'+new Date().toISOString().slice(0,10)+'.csv';document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},500);
 }
 $('#stuSearch').addEventListener('input',drawStudentList);
+$('#stuList').addEventListener('click',async function(e){
+  var b=e.target.closest('button[data-act]');if(!b)return;
+  var id=b.dataset.id,a=b.dataset.act,s=STUDENTS.filter(function(x){return String(x.id)===String(id)})[0];if(!s)return;
+  var m=$('#stuMsg');
+  if(a==='st-reset'){
+    if(!b.dataset.sure){b.dataset.sure='1';b.textContent='Click again to reset';return}
+    var r=await call('POST','/api/admin/students/'+id+'/reset-password');
+    if(r.password){m.innerHTML='New password for <b>'+esc(s.name)+'</b>: <code style="font-size:16px">'+esc(r.password)+'</code> &mdash; copy it now and send it to the student. They are logged out.';try{await navigator.clipboard.writeText(r.password)}catch(x){}}
+    else m.textContent=r.error||'Could not reset the password.';
+    b.dataset.sure='';b.textContent='Reset password';m.scrollIntoView({block:'nearest'});return;
+  }
+  if(a==='st-susp'){
+    var r2=await call('POST','/api/admin/students/'+id+'/suspend',{suspended:!s.suspended});
+    if(r2.error){m.textContent=r2.error;return}
+    s.suspended=!!r2.suspended;m.textContent=s.name+(s.suspended?' is suspended and logged out.':' can log in again.');drawStudentList();return;
+  }
+  if(a==='st-del'){
+    if(!b.dataset.sure){b.dataset.sure='1';b.textContent='Click again to delete';return}
+    var r3=await call('DELETE','/api/admin/students/'+id);
+    if(r3.error){m.textContent=r3.error;return}
+    STUDENTS=STUDENTS.filter(function(x){return String(x.id)!==String(id)});m.textContent=s.name+' was deleted.';drawStudentList();return;
+  }
+});
 $('#stuCsv').addEventListener('click',studentsCsv);
 $('#stuRefresh').addEventListener('click',drawStudents);
 async function drawStaff(){
@@ -1807,6 +1862,7 @@ var _dg=drawGuide;drawGuide=function(){_dg();if(APP.user&&APP.user.aiOutline&&!$
 })();
 /* ---- start ---- */
 (async function boot(){
+  try{if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol))navigator.serviceWorker.register('/sw.js').catch(function(){})}catch(e){}
   buildSchools();$('#fSchool').value=ALL;
   drawFilters();window.observeReveals();
   if(window.TWW_API_BASE){

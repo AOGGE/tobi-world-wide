@@ -89,6 +89,7 @@ function sendJson(res, status, payload) {
 function sendHtml(res, status, content) {
   res.writeHead(status, {
     'Content-Type': 'text/html; charset=utf-8',
+    'Cache-Control': 'no-cache',
     'Content-Length': Buffer.byteLength(content),
     'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
     'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
@@ -127,7 +128,7 @@ async function getUserFromToken(req) {
     'SELECT u.Id, u.FullName, u.Email, u.IsAdmin, u.UniversityId, u.Matric, u.Programme, u.Subjects, u.AiOutline, v.Name AS University '
     + 'FROM dbo.ApiSessions s JOIN dbo.StudentProfiles u ON u.Id = s.StudentId '
     + 'JOIN dbo.Universities v ON v.Id = u.UniversityId '
-    + 'WHERE s.TokenHash = ? AND s.ExpiresAt > SYSUTCDATETIME()',
+    + 'WHERE s.TokenHash = ? AND s.ExpiresAt > SYSUTCDATETIME() AND u.IsSuspended = false',
     [tokenHash(token)]
   );
   return rows[0] || null;
@@ -156,7 +157,7 @@ let readyPromise;
 const COLUMN_NAMES = ('Id FullName Email IsAdmin UniversityId University Username DisplayName PasswordHash Name Category State '
   + 'SourceUrl SourceUpdatedAt Topic Headline Summary BodyHtml ReadingMinutes School PublishedAt SourceHost IsOfficialSource '
   + 'CreatedAt Title Body Status SubmittedAt Author AutoPublishOfficial Total LastSync SenderId RecipientId SentAt UsedBy '
-  + 'SourceTitle Connected UserType UserId Matric Programme Subjects AiOutline').split(' ');
+  + 'SourceTitle Connected UserType UserId Matric Programme Subjects AiOutline Phone IsSuspended').split(' ');
 const CANONICAL = new Map(COLUMN_NAMES.map(name => [name.toLowerCase(), name]));
 types.setTypeParser(20, value => Number(value)); // BIGINT / COUNT(*) as numbers
 
@@ -669,6 +670,20 @@ function rateLimited(key, limit, windowMs) {
   return false;
 }
 
+function normalizePhone(value) {
+  let digits = String(value || '').replace(/[^0-9]/g, '');
+  if (!digits) return '';
+  if (digits.startsWith('0') && digits.length === 11) digits = '234' + digits.slice(1);
+  else if (digits.length === 10 && /^[789]/.test(digits)) digits = '234' + digits;
+  return digits.length >= 11 && digits.length <= 15 ? digits : null;
+}
+
+function tempPassword() {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  const bytes = crypto.randomBytes(10);
+  return Array.from(bytes, b => alphabet[b % alphabet.length]).join('');
+}
+
 class FriendlyError extends Error {}
 
 const GEMINI_BASE = process.env.GEMINI_API_URL || 'https://generativelanguage.googleapis.com/v1beta';
@@ -888,12 +903,17 @@ function routeTable() {
           sendJson(res, 400, { error: 'invalid_university' });
           return;
         }
+        const phone = normalizePhone(body.phone);
+        if (phone === null) {
+          sendJson(res, 400, { error: 'Enter a valid WhatsApp number, for example 08012345678.' });
+          return;
+        }
         let student;
         try {
           student = await dbWrite(
-            'INSERT dbo.StudentProfiles (FullName, Email, PasswordHash, UniversityId, IsAdmin, Matric, Programme) OUTPUT INSERTED.Id '
-            + 'VALUES (?, ?, ?, ?, false, ?, ?)',
-            [name, email, hashPassword(password), universityId, String(body.matric || '').trim().slice(0, 60) || null, String(body.programme || '').trim().slice(0, 160) || null]
+            'INSERT dbo.StudentProfiles (FullName, Email, PasswordHash, UniversityId, IsAdmin, Matric, Programme, Phone) OUTPUT INSERTED.Id '
+            + 'VALUES (?, ?, ?, ?, false, ?, ?, ?)',
+            [name, email, hashPassword(password), universityId, String(body.matric || '').trim().slice(0, 60) || null, String(body.programme || '').trim().slice(0, 160) || null, phone || null]
           );
         } catch (err) {
           if (err.code === '23505') {
@@ -911,12 +931,16 @@ function routeTable() {
         const email = String(body.email || '').trim().toLowerCase();
         const password = String(body.password || '');
         const rows = await dbRows(
-          'SELECT Id, FullName, Email, PasswordHash, IsAdmin, UniversityId FROM dbo.StudentProfiles WHERE Email = ?',
+          'SELECT Id, FullName, Email, PasswordHash, IsAdmin, IsSuspended, UniversityId FROM dbo.StudentProfiles WHERE Email = ?',
           [email]
         );
         const student = rows[0];
         if (!student || !verifyPassword(password, student.PasswordHash)) {
           sendJson(res, 401, { error: 'invalid_credentials' });
+          return;
+        }
+        if (student.IsSuspended) {
+          sendJson(res, 403, { error: 'This account has been suspended. Please contact the admin.' });
           return;
         }
         const token = await issueSession(student);
@@ -1159,6 +1183,45 @@ function routeTable() {
         return;
       }
 
+      const studentAction = pathname.match(/^\/api\/admin\/students\/([0-9]+)(?:\/(reset-password|suspend))?$/);
+      if (studentAction) {
+        const current = await getPortalUser(req);
+        if (!current || current.role !== 'admin') {
+          sendJson(res, current ? 403 : 401, { error: 'admin_required' });
+          return;
+        }
+        const studentId = Number(studentAction[1]);
+        const action = studentAction[2] || '';
+        const found = await dbRows('SELECT Id, IsAdmin FROM dbo.StudentProfiles WHERE Id = ?', [studentId]);
+        if (!found.length) {
+          sendJson(res, 404, { error: 'Student not found.' });
+          return;
+        }
+        if (req.method === 'POST' && action === 'reset-password') {
+          const password = tempPassword();
+          await dbWrite('UPDATE dbo.StudentProfiles SET PasswordHash = ? WHERE Id = ?', [hashPassword(password), studentId]);
+          await dbWrite('DELETE FROM dbo.ApiSessions WHERE StudentId = ?', [studentId]);
+          sendJson(res, 200, { password });
+          return;
+        }
+        if (req.method === 'POST' && action === 'suspend') {
+          const body = await parseBody(req);
+          const suspended = body.suspended !== false;
+          await dbWrite('UPDATE dbo.StudentProfiles SET IsSuspended = ? WHERE Id = ?', [suspended, studentId]);
+          if (suspended) await dbWrite('DELETE FROM dbo.ApiSessions WHERE StudentId = ?', [studentId]);
+          sendJson(res, 200, { suspended });
+          return;
+        }
+        if (req.method === 'DELETE' && !action) {
+          await dbWrite('DELETE FROM dbo.StudentMessages WHERE SenderId = ? OR RecipientId = ?', [studentId, studentId]);
+          await dbWrite('DELETE FROM dbo.StudentProfiles WHERE Id = ?', [studentId]);
+          sendJson(res, 200, { deleted: true });
+          return;
+        }
+        sendJson(res, 405, { error: 'method_not_allowed' });
+        return;
+      }
+
       if (pathname === '/api/admin/students') {
         const current = await getPortalUser(req);
         if (!current || current.role !== 'admin') {
@@ -1166,12 +1229,12 @@ function routeTable() {
           return;
         }
         const rows = await dbRows(
-          'SELECT u.Id, u.FullName, u.Email, u.Matric, u.Programme, u.CreatedAt, v.Name AS University '
+          'SELECT u.Id, u.FullName, u.Email, u.Matric, u.Programme, u.Phone, u.IsSuspended, u.CreatedAt, v.Name AS University '
           + 'FROM dbo.StudentProfiles u JOIN dbo.Universities v ON v.Id = u.UniversityId ORDER BY u.CreatedAt DESC'
         );
         sendJson(res, 200, rows.map(r => ({
           id: r.Id, name: r.FullName, email: r.Email, school: r.University,
-          matric: r.Matric || '', programme: r.Programme || '', joined: r.CreatedAt
+          matric: r.Matric || '', programme: r.Programme || '', phone: r.Phone || '', suspended: !!r.IsSuspended, joined: r.CreatedAt
         })));
         return;
       }
@@ -1520,6 +1583,17 @@ function routeTable() {
         );
         sendJson(res, 201, { id: row.Id, sentAt: row.SentAt });
         return;
+      }
+
+      const PUBLIC_FILES = { '/manifest.webmanifest': 'manifest.webmanifest', '/sw.js': 'sw.js', '/icon-192.png': 'icon-192.png', '/icon-512.png': 'icon-512.png' };
+      if (PUBLIC_FILES[pathname] && (req.method === 'GET' || req.method === 'HEAD')) {
+        const file = path.join(__dirname, 'public', PUBLIC_FILES[pathname]);
+        if (fs.existsSync(file)) {
+          const types = { '.png': 'image/png', '.js': 'application/javascript; charset=utf-8', '.webmanifest': 'application/manifest+json; charset=utf-8' };
+          res.writeHead(200, { 'Content-Type': types[path.extname(file)] || 'application/octet-stream', 'Cache-Control': pathname === '/sw.js' ? 'no-cache' : 'public, max-age=86400' });
+          res.end(req.method === 'HEAD' ? undefined : fs.readFileSync(file));
+          return;
+        }
       }
 
       if (pathname === '/' || pathname === '/index.html') {
