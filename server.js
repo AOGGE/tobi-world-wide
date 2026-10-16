@@ -157,7 +157,7 @@ let readyPromise;
 const COLUMN_NAMES = ('Id FullName Email IsAdmin UniversityId University Username DisplayName PasswordHash Name Category State '
   + 'SourceUrl SourceUpdatedAt Topic Headline Summary BodyHtml ReadingMinutes School PublishedAt SourceHost IsOfficialSource '
   + 'CreatedAt Title Body Status SubmittedAt Author AutoPublishOfficial Total LastSync SenderId RecipientId SentAt UsedBy '
-  + 'SourceTitle Connected UserType UserId Matric Programme Subjects AiOutline Phone IsSuspended').split(' ');
+  + 'SourceTitle Connected UserType UserId Matric Programme Subjects AiOutline Phone IsSuspended Code').split(' ');
 const CANONICAL = new Map(COLUMN_NAMES.map(name => [name.toLowerCase(), name]));
 types.setTypeParser(20, value => Number(value)); // BIGINT / COUNT(*) as numbers
 
@@ -1239,6 +1239,67 @@ function routeTable() {
         return;
       }
 
+      const adminInvite = pathname.match(/^\/api\/admin\/invites(?:\/([A-Za-z0-9]+))?$/);
+      const adminStaffDel = pathname.match(/^\/api\/admin\/staff\/([A-Za-z0-9_.@-]+)$/);
+      const adminReport = pathname.match(/^\/api\/admin\/reports\/([0-9]+)\/(approve|reject|delete)$/);
+      if (adminInvite || adminStaffDel || adminReport) {
+        const current = await getPortalUser(req);
+        if (!current || current.role !== 'admin') {
+          sendJson(res, current ? 403 : 401, { error: 'admin_required' });
+          return;
+        }
+        if (adminInvite && req.method === 'POST' && !adminInvite[1]) {
+          const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+          const code = Array.from(crypto.randomBytes(8), byte => alphabet[byte % alphabet.length]).join('');
+          await dbWrite('INSERT dbo.ReporterInvites (CodeHash, Code) VALUES (?, ?)', [tokenHash(code), code]);
+          sendJson(res, 201, { code });
+          return;
+        }
+        if (adminInvite && req.method === 'DELETE' && adminInvite[1]) {
+          await dbWrite('DELETE FROM dbo.ReporterInvites WHERE Code = ? AND UsedByReporterId IS NULL', [adminInvite[1].toUpperCase()]);
+          sendJson(res, 200, { message: 'invite_removed' });
+          return;
+        }
+        if (adminStaffDel && req.method === 'DELETE') {
+          const found = await dbRows('SELECT Id FROM dbo.Reporters WHERE Username = ?', [adminStaffDel[1]]);
+          if (!found.length) { sendJson(res, 404, { error: 'Reporter not found.' }); return; }
+          const reporterId = found[0].Id;
+          await withTransaction(async q => {
+            await q("DELETE FROM dbo.PortalSessions WHERE UserType = 'reporter' AND UserId = ?", [reporterId]);
+            await q('DELETE FROM dbo.SubmittedReports WHERE ReporterId = ?', [reporterId]);
+            await q('UPDATE dbo.ReporterInvites SET UsedByReporterId = NULL WHERE UsedByReporterId = ?', [reporterId]);
+            await q('DELETE FROM dbo.Reporters WHERE Id = ?', [reporterId]);
+          });
+          sendJson(res, 200, { message: 'reporter_removed' });
+          return;
+        }
+        if (adminReport && req.method === 'POST') {
+          const reportId = Number(adminReport[1]);
+          const action = adminReport[2];
+          const rows = await dbRows('SELECT Id, ReporterId, Title, Body, Status FROM dbo.SubmittedReports WHERE Id = ?', [reportId]);
+          if (!rows.length) { sendJson(res, 404, { error: 'Report not found.' }); return; }
+          const report = rows[0];
+          if (action === 'delete') {
+            await dbWrite('DELETE FROM dbo.SubmittedReports WHERE Id = ?', [reportId]);
+          } else if (action === 'reject') {
+            await dbWrite("UPDATE dbo.SubmittedReports SET Status = 'rejected', ReviewedAt = SYSUTCDATETIME() WHERE Id = ?", [reportId]);
+          } else {
+            if (report.Status !== 'approved') {
+              const body = String(report.Body || '');
+              await dbWrite(
+                'INSERT dbo.NewsArticles (Topic, Headline, Summary, BodyHtml, ReadingMinutes, School, SourceUrl, AuthorId) VALUES (?, ?, ?, ?, ?, ?, NULL, ?)',
+                ['Campus', String(report.Title || '').slice(0, 300), body.replace(/\s+/g, ' ').trim().slice(0, 200), articleHtml(body), readingMinutes(body), 'All schools', report.ReporterId]
+              );
+            }
+            await dbWrite("UPDATE dbo.SubmittedReports SET Status = 'approved', ReviewedAt = SYSUTCDATETIME() WHERE Id = ?", [reportId]);
+          }
+          sendJson(res, 200, { ok: true });
+          return;
+        }
+        sendJson(res, 405, { error: 'method_not_allowed' });
+        return;
+      }
+
       if (pathname === '/api/admin/staff') {
         const current = await getPortalUser(req);
         if (!current || current.role !== 'admin') {
@@ -1249,6 +1310,7 @@ function routeTable() {
           "SELECT Id, Headline, SourceUrl, SourceHost, IsOfficialSource, CreatedAt FROM dbo.PendingNewsArticles WHERE Status = N'pending' ORDER BY CreatedAt DESC"
         );
         const reporters = await dbRows('SELECT Username, FullName, Email, CreatedAt FROM dbo.Reporters ORDER BY CreatedAt DESC');
+        const inviteRows = await dbRows('SELECT i.Code, r.Username AS UsedBy FROM dbo.ReporterInvites i LEFT JOIN dbo.Reporters r ON r.Id = i.UsedByReporterId WHERE i.Code IS NOT NULL ORDER BY i.CreatedAt DESC');
         const reports = await dbRows(
           'SELECT r.Id, r.Title, r.Body, r.Status, r.SubmittedAt, p.Username AS Author '
           + 'FROM dbo.SubmittedReports r JOIN dbo.Reporters p ON p.Id = r.ReporterId ORDER BY r.SubmittedAt DESC'
@@ -1261,7 +1323,7 @@ function routeTable() {
           students: totals[0].Total,
           settings: { autoPublish: !!settings[0].AutoPublishOfficial },
           pendingNews: pending.map(row => ({ id: row.Id, h: row.Headline, src: row.SourceUrl, host: row.SourceHost, official: !!row.IsOfficialSource, created: row.CreatedAt })),
-          invites: [],
+          invites: inviteRows.map(row => ({ code: row.Code, usedBy: row.UsedBy || '' })),
           staff: reporters.map(row => ({ name: row.FullName, username: row.Username, email: row.Email, created: row.CreatedAt })),
           reports: reports.map(row => ({ id: String(row.Id), title: row.Title, body: row.Body, status: row.Status, date: row.SubmittedAt, author: row.Author }))
         });
