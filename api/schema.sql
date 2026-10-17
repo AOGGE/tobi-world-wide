@@ -127,3 +127,58 @@ ALTER TABLE StudentProfiles ADD COLUMN IF NOT EXISTS AiOutline TEXT;
 ALTER TABLE StudentProfiles ADD COLUMN IF NOT EXISTS Phone VARCHAR(30);
 ALTER TABLE StudentProfiles ADD COLUMN IF NOT EXISTS IsSuspended BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE ReporterInvites ADD COLUMN IF NOT EXISTS Code VARCHAR(20);
+
+-- Help requests from students (admission processing, hostel, NELFUND, scholarship forms, password help)
+CREATE TABLE IF NOT EXISTS ServiceRequests (
+  Id BIGSERIAL PRIMARY KEY,
+  StudentId BIGINT NOT NULL REFERENCES StudentProfiles(Id) ON DELETE CASCADE,
+  Kind VARCHAR(60) NOT NULL,
+  Details VARCHAR(1500),
+  Status VARCHAR(20) NOT NULL DEFAULT 'new',
+  AdminNote VARCHAR(500),
+  CreatedAt TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UpdatedAt TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Banner messages from the admin (all students, or one university)
+CREATE TABLE IF NOT EXISTS Announcements (
+  Id BIGSERIAL PRIMARY KEY,
+  Message VARCHAR(600) NOT NULL,
+  UniversityId BIGINT REFERENCES Universities(Id) ON DELETE CASCADE,
+  CreatedAt TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Opens and shares per news post
+CREATE TABLE IF NOT EXISTS PostStats (
+  PostId VARCHAR(40) PRIMARY KEY,
+  Views INT NOT NULL DEFAULT 0,
+  Shares INT NOT NULL DEFAULT 0
+);
+
+-- Past questions / CBT practice
+CREATE TABLE IF NOT EXISTS CbtQuestions (
+  Id BIGSERIAL PRIMARY KEY,
+  Subject VARCHAR(120) NOT NULL,
+  Question VARCHAR(700) NOT NULL,
+  OptA VARCHAR(300) NOT NULL,
+  OptB VARCHAR(300) NOT NULL,
+  OptC VARCHAR(300),
+  OptD VARCHAR(300),
+  Answer CHAR(1) NOT NULL,
+  Explanation VARCHAR(700),
+  Source VARCHAR(10) NOT NULL DEFAULT 'admin',
+  CreatedAt TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS CbtQuestionsSubject ON CbtQuestions (lower(Subject));
+
+-- Email codes for forgotten passwords
+CREATE TABLE IF NOT EXISTS PasswordResets (
+  Id BIGSERIAL PRIMARY KEY,
+  StudentId BIGINT NOT NULL REFERENCES StudentProfiles(Id) ON DELETE CASCADE,
+  CodeHash VARCHAR(100) NOT NULL,
+  ExpiresAt TIMESTAMPTZ NOT NULL,
+  Attempts INT NOT NULL DEFAULT 0
+);
+
+ALTER TABLE NewsDeskSettings ADD COLUMN IF NOT EXISTS AutoSearch BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE NewsDeskSettings ADD COLUMN IF NOT EXISTS LastAutoRun TIMESTAMPTZ;

@@ -817,11 +817,48 @@ function tutorMessages(history, question) {
   return turns;
 }
 
+async function runNewsDesk() {
+  const candidates = await discoverNews();
+  const settings = await dbRows('SELECT AutoPublishOfficial FROM dbo.NewsDeskSettings WHERE Id = 1');
+  if (!settings.length) throw new Error('News desk settings are missing; run api/schema.sql first');
+  const counts = { published: 0, pending: 0, skipped: 0 };
+  for (const item of candidates) {
+    const duplicates = await dbRows(
+      "(SELECT Id FROM dbo.NewsArticles WHERE SourceUrl = ? LIMIT 1) UNION ALL (SELECT Id FROM dbo.PendingNewsArticles WHERE SourceUrl = ? AND Status IN (N'pending', N'published') LIMIT 1)",
+      [item.sourceUrl, item.sourceUrl]
+    );
+    if (duplicates.length) {
+      counts.skipped += 1;
+      continue;
+    }
+    const bodyHtml = articleHtml(item.body);
+    if (item.official && settings[0].AutoPublishOfficial) {
+      await dbWrite(
+        'INSERT dbo.NewsArticles (Topic, Headline, Summary, BodyHtml, ReadingMinutes, School, SourceUrl, AuthorId) VALUES (?, ?, ?, ?, ?, ?, ?, NULL)',
+        [item.topic, item.headline, item.summary, bodyHtml, readingMinutes(item.body), item.school, item.sourceUrl]
+      );
+      counts.published += 1;
+    } else {
+      await dbWrite(
+        'INSERT dbo.PendingNewsArticles (Topic, Headline, Summary, BodyHtml, School, SourceUrl, SourceTitle, SourceHost, IsOfficialSource) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [item.topic, item.headline, item.summary, bodyHtml, item.school, item.sourceUrl, item.sourceTitle, item.sourceHost, item.official]
+      );
+      counts.pending += 1;
+    }
+  }
+  return counts;
+}
+
 const TUTOR_MODES = {
   explain: 'Explain the topic or question clearly, step by step, with one simple example. Keep it under 300 words.',
   quiz: 'Write a short quiz of 5 questions on the topic, with the answers listed at the end. Keep questions at university level.',
   plan: 'Give a practical reading plan for the topic across the coming days, with specific things to read and practise. Keep it under 300 words.'
 };
+
+const features = require('./features')({
+  dbRows, dbWrite, withTransaction, sendJson, parseBody, requireStudent, getPortalUser, askClaude, aiEnabled,
+  rateLimited, tokenHash, hashPassword, parseSubjects, runNewsDesk
+});
 
 function routeTable() {
   return http.createServer(async (req, res) => {
@@ -840,6 +877,8 @@ function routeTable() {
     }
 
     try {
+      if (await features.handle(req, res, pathname, searchParams)) return;
+
       if (pathname === '/api/health') {
         await dbRows('SELECT 1 AS Connected');
         sendJson(res, 200, { ok: true, status: 'ok', database: 'postgres' });
@@ -1315,13 +1354,13 @@ function routeTable() {
           'SELECT r.Id, r.Title, r.Body, r.Status, r.SubmittedAt, p.Username AS Author '
           + 'FROM dbo.SubmittedReports r JOIN dbo.Reporters p ON p.Id = r.ReporterId ORDER BY r.SubmittedAt DESC'
         );
-        const settings = await dbRows('SELECT AutoPublishOfficial FROM dbo.NewsDeskSettings WHERE Id = 1');
+        const settings = await dbRows('SELECT AutoPublishOfficial, AutoSearch, LastAutoRun FROM dbo.NewsDeskSettings WHERE Id = 1');
         const totals = await dbRows('SELECT COUNT(*) AS Total FROM dbo.StudentProfiles');
         if (!settings.length || !totals.length) throw new Error('Database schema is not initialized; run api/schema.sql first');
         sendJson(res, 200, {
           ai: aiEnabled(),
           students: totals[0].Total,
-          settings: { autoPublish: !!settings[0].AutoPublishOfficial },
+          settings: { autoPublish: !!settings[0].AutoPublishOfficial, autoSearch: settings[0].autosearch !== false, lastAutoRun: settings[0].lastautorun || null },
           pendingNews: pending.map(row => ({ id: row.Id, h: row.Headline, src: row.SourceUrl, host: row.SourceHost, official: !!row.IsOfficialSource, created: row.CreatedAt })),
           invites: inviteRows.map(row => ({ code: row.Code, usedBy: row.UsedBy || '' })),
           staff: reporters.map(row => ({ name: row.FullName, username: row.Username, email: row.Email, created: row.CreatedAt })),
@@ -1337,12 +1376,17 @@ function routeTable() {
           return;
         }
         const body = await parseBody(req);
-        if (typeof body.autoPublish !== 'boolean') {
+        if (typeof body.autoPublish !== 'boolean' && typeof body.autoSearch !== 'boolean') {
           sendJson(res, 400, { error: 'invalid_setting' });
           return;
         }
-        await dbWrite('UPDATE dbo.NewsDeskSettings SET AutoPublishOfficial = ?, UpdatedAt = SYSUTCDATETIME() WHERE Id = 1', [body.autoPublish]);
-        sendJson(res, 200, { autoPublish: body.autoPublish });
+        if (typeof body.autoPublish === 'boolean') {
+          await dbWrite('UPDATE dbo.NewsDeskSettings SET AutoPublishOfficial = ?, UpdatedAt = SYSUTCDATETIME() WHERE Id = 1', [body.autoPublish]);
+        }
+        if (typeof body.autoSearch === 'boolean') {
+          await dbWrite('UPDATE dbo.NewsDeskSettings SET AutoSearch = ?, UpdatedAt = SYSUTCDATETIME() WHERE Id = 1', [body.autoSearch]);
+        }
+        sendJson(res, 200, { autoPublish: body.autoPublish, autoSearch: body.autoSearch });
         return;
       }
 
@@ -1356,41 +1400,14 @@ function routeTable() {
           sendJson(res, 400, { error: 'Set GEMINI_API_KEY or ANTHROPIC_API_KEY to enable verified news search' });
           return;
         }
-        let candidates;
-        try { candidates = await discoverNews(); } catch (newsError) {
+        try {
+          const counts = await runNewsDesk();
+          sendJson(res, 200, { added: counts.published + counts.pending, ...counts });
+        } catch (newsError) {
           console.error('News search failed:', newsError.message);
           const quota = /429|quota/i.test(newsError.message);
           sendJson(res, 502, { error: quota ? 'The AI has reached its free limit right now. Try again in a few minutes.' : 'The AI news search failed: ' + String(newsError.message).slice(0, 200) });
-          return;
         }
-        const settings = await dbRows('SELECT AutoPublishOfficial FROM dbo.NewsDeskSettings WHERE Id = 1');
-        if (!settings.length) throw new Error('News desk settings are missing; run api/schema.sql first');
-        const counts = { published: 0, pending: 0, skipped: 0 };
-        for (const item of candidates) {
-          const duplicates = await dbRows(
-            "(SELECT Id FROM dbo.NewsArticles WHERE SourceUrl = ? LIMIT 1) UNION ALL (SELECT Id FROM dbo.PendingNewsArticles WHERE SourceUrl = ? AND Status IN (N'pending', N'published') LIMIT 1)",
-            [item.sourceUrl, item.sourceUrl]
-          );
-          if (duplicates.length) {
-            counts.skipped += 1;
-            continue;
-          }
-          const bodyHtml = articleHtml(item.body);
-          if (item.official && settings[0].AutoPublishOfficial) {
-            await dbWrite(
-              'INSERT dbo.NewsArticles (Topic, Headline, Summary, BodyHtml, ReadingMinutes, School, SourceUrl, AuthorId) VALUES (?, ?, ?, ?, ?, ?, ?, NULL)',
-              [item.topic, item.headline, item.summary, bodyHtml, readingMinutes(item.body), item.school, item.sourceUrl]
-            );
-            counts.published += 1;
-          } else {
-            await dbWrite(
-              'INSERT dbo.PendingNewsArticles (Topic, Headline, Summary, BodyHtml, School, SourceUrl, SourceTitle, SourceHost, IsOfficialSource) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-              [item.topic, item.headline, item.summary, bodyHtml, item.school, item.sourceUrl, item.sourceTitle, item.sourceHost, item.official]
-            );
-            counts.pending += 1;
-          }
-        }
-        sendJson(res, 200, { added: counts.published + counts.pending, ...counts });
         return;
       }
 
@@ -1699,4 +1716,5 @@ server.on('close', async () => {
 });
 server.listen(PORT, HOST, () => {
   console.log(`TWW JS API listening on http://${HOST}:${PORT}`);
+  features.startScheduler();
 });
