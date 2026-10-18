@@ -432,6 +432,29 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
 .cbt-why{margin-top:12px;padding:12px 14px;border-radius:12px;background:var(--soft);font-size:14.5px}
 .cbt-miss{border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-top:10px;background:var(--bg);font-size:14.5px}
 .cbt-miss p{margin:4px 0}
+/* campus hub */
+.ctabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+.ctab{border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font:600 14px var(--f-body);padding:9px 14px;border-radius:99px;cursor:pointer}
+.ctab[aria-selected=true]{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
+.cpane{display:grid;gap:14px}
+.cpane h3{margin:8px 0 0;font-size:1.15rem}
+.cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.ccard{background:var(--bg);border:1px solid var(--line);border-radius:16px;padding:14px 16px;display:grid;gap:6px;align-content:start}
+.ccard b{overflow-wrap:anywhere}
+.ccard small{color:var(--muted);font-size:13px}
+.ccard .pill{justify-self:start}
+.ccard p{margin:0;font-size:14.5px}
+.ccard .row2{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.cbar{height:10px;border-radius:99px;background:var(--soft);overflow:hidden}
+.cbar i{display:block;height:100%;background:linear-gradient(90deg,var(--brand),var(--gold));width:0;transition:width .3s}
+.cstep{display:flex;gap:12px;align-items:flex-start;background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.cstep input{width:20px;height:20px;margin-top:3px;flex:none}
+.cstep.done b{text-decoration:line-through;color:var(--muted)}
+.cstep span{display:block;font-size:13.5px;color:var(--muted)}
+.pill.hot{background:var(--err);color:#fff}
+.cwarn{background:var(--soft);border-radius:12px;padding:10px 14px;font-size:14px}
+.ctoday{background:var(--brand);color:var(--brand-ink);border-radius:16px;padding:14px 18px;font-weight:600}
+.ctoday small{color:inherit;opacity:.85;font-weight:400}
 </style>
 
 <div class="progress" id="progress"></div>
@@ -586,6 +609,58 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
 <p id="stuStats" style="margin:8px 0 0;font-size:14px"></p>
 <div id="stuList" style="margin-top:10px;display:grid;gap:8px;max-height:480px;overflow:auto"></div>
 </div>
+    <div class="admin" style="border-style:solid;margin-bottom:20px" id="campusPanel" hidden>
+      <h3>Campus content <span id="cpCount" style="font-weight:400;font-size:14px"></span></h3>
+      <p>Post scholarships and jobs, add registration steps, publish scam alerts, and approve what students send in.</p>
+      <div class="ctabs" role="tablist" id="acTabs">
+        <button class="ctab" type="button" data-tab="opp" aria-selected="true">Opportunities</button>
+        <button class="ctab" type="button" data-tab="notes" aria-selected="false">Notes</button>
+        <button class="ctab" type="button" data-tab="mk" aria-selected="false">Market</button>
+        <button class="ctab" type="button" data-tab="steps" aria-selected="false">Registration steps</button>
+        <button class="ctab" type="button" data-tab="scam" aria-selected="false">Scam alerts</button>
+      </div>
+      <p class="note-small" id="acMsg" style="text-align:left"></p>
+      <div class="cpane" id="ac-opp">
+        <form id="aoForm" class="form-grid" autocomplete="off">
+          <div class="field"><label for="aoKind">Type</label><select id="aoKind"><option>Scholarship</option><option>SIWES</option><option>Internship</option><option>Job</option><option>Other</option></select></div>
+          <div class="field"><label for="aoTitle">Title</label><input id="aoTitle" type="text" maxlength="200"></div>
+          <div class="field"><label for="aoOrg">Provider or company</label><input id="aoOrg" type="text" maxlength="160"></div>
+          <div class="field"><label for="aoLoc">Location</label><input id="aoLoc" type="text" maxlength="120"></div>
+          <div class="field"><label for="aoDue">Deadline</label><input id="aoDue" type="date"></div>
+          <div class="field"><label for="aoLink">Official link</label><input id="aoLink" type="text" placeholder="https://"></div>
+          <div class="field full"><label for="aoDet">Details</label><textarea id="aoDet" style="min-height:80px" maxlength="1500"></textarea></div>
+          <div class="field"><button class="btn" type="submit">Publish</button></div>
+        </form>
+        <div id="aoList" style="display:grid;gap:8px;max-height:420px;overflow:auto"></div>
+      </div>
+      <div class="cpane" id="ac-notes" hidden>
+        <form id="anForm" class="form-grid" autocomplete="off">
+          <div class="field"><label for="anvSub">Course</label><input id="anvSub" type="text" maxlength="120"></div>
+          <div class="field"><label for="anvTitle">Title</label><input id="anvTitle" type="text" maxlength="160"></div>
+          <div class="field"><label for="anvFile">File (up to 5 MB)</label><input id="anvFile" type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.png,.jpg,.jpeg,.txt"></div>
+          <div class="field"><button class="btn" type="submit">Upload</button></div>
+        </form>
+        <div id="anList" style="display:grid;gap:8px;max-height:420px;overflow:auto"></div>
+      </div>
+      <div class="cpane" id="ac-mk" hidden><div id="amList" style="display:grid;gap:8px;max-height:420px;overflow:auto"></div></div>
+      <div class="cpane" id="ac-steps" hidden>
+        <form id="asForm" class="form-grid" autocomplete="off">
+          <div class="field"><label for="asTitle">Step</label><input id="asTitle" type="text" maxlength="200" placeholder="e.g. Collect your hostel key"></div>
+          <div class="field"><label for="asSchool">School (optional)</label><input id="asSchool" type="text" list="schoolList" placeholder="All schools" autocomplete="off"></div>
+          <div class="field full"><label for="asDet">Details (optional)</label><input id="asDet" type="text" maxlength="600"></div>
+          <div class="field"><button class="btn" type="submit">Add step</button></div>
+        </form>
+        <div id="asList" style="display:grid;gap:8px;max-height:420px;overflow:auto"></div>
+      </div>
+      <div class="cpane" id="ac-scam" hidden>
+        <form id="acForm" class="form-grid" autocomplete="off">
+          <div class="field full"><label for="acTitle">Alert title</label><input id="acTitle" type="text" maxlength="160" placeholder="e.g. Fake JAMB admission list going round"></div>
+          <div class="field full"><label for="acDet">What students should do</label><textarea id="acDet" style="min-height:80px" maxlength="1000"></textarea></div>
+          <div class="field"><button class="btn" type="submit">Publish alert</button></div>
+        </form>
+        <div id="acList" style="display:grid;gap:8px"></div>
+      </div>
+    </div>
     <div class="admin" style="border-style:solid;margin-bottom:20px" id="reqPanel" hidden>
       <h3>Help requests <span id="rqCount" style="font-weight:400;font-size:14px"></span></h3>
       <div class="admin-actions"><select id="rqFilter" aria-label="Filter requests"><option value="open">Open (new and in progress)</option><option value="all">All</option><option value="done">Done</option></select><button class="btn sm" id="rqRefresh" type="button">Refresh</button></div>
@@ -656,7 +731,7 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
     <a class="brand" href="#top"><span class="logo"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAKAAAACgCAMAAAC8EZcfAAAASFBMVEX//////v/+/v/+/v79/v/+/P/+/vz+/f39/f38/f38/Pz+//n8/Pj7+fv29vfIxNZcVH09MXE4K3E4J3k4J3U1J24xI2wgFk9wo27kAAAfAUlEQVR42u1d6WKjOrMUYGEskFgM8vu/6a2qFthOnEwmM5nv/LicWTJODOVWL9WLdJz7r1+drsYue6l5f3WP19N3Wl16Xzskd2r6oa3rum1f/Ox3rmc0HwL88Gofr2EI8Tz0vfe+7dvmr1x/FWBqYhXT8IMAf/96AhidT9ENLQD2/0WAXRynaRpd8L7+IYC/r9gFW9Dlptt2m/6zAIdQTbcZALufA/hnS9x4AxjhZv4f4B8BbPl6818G2NZN8x8GOPQAWP9vALYWb/A39Kx+dtN4bQfYN/wef0bvql35vr3lJwDqSW3HeNu6lFLfwpf4ehj6Bzl28QDYNy1+80f45irxpSEl7zt+78cAhrbthz5WDhijx3/PAKsCMD4C5MrXMQEeonzyXRp+ECDw4Lk+jaNLMV4uEmW5AMo9AKwbA0jsHgziktyIt0W+pf4hgKRTWKh2nG43IBxArroY7vj6fYkDqIw3gDW+0XZVisB3u81jTO0Q6g9i1wu62XW/JUFxPjxJCEFPYyBtOa7gSyym1BqYsvDh7xoKAXyTPld0zc8BDL0AbvN8Gz1kmEJ4ANj5NN2mVJMMIhofAH2VqvGG9xBgd3p8ZGcs48U/9pd+d4nbvgOKbVmEMLkCcOBStjHCDLx3lCbEWHuayhAc13e5znke8ZHi6acANqZqwylNec1znuhvhiK9NkTXpTOtO0A7YeztBQkPfUtLfHlZb3NyqU+x+8El1opBIjCGnCFDNwgg1bHpLik0XezqDlIdaEJ1OxAg9S9vWxa+/uzrnwaIRxLhAj2Mhq914QJLbWIIMYaUYMbDEMMJXhnyi9C/bc63VKeABY+X7ivX9wECYfRpvi3bdkvJGb4UATDCrOEd8XeCC8dXXdtDC1K+5RnrSxcztM3X8P0JwABRXYAwA2CslBVf8PToYCO6KsQayLk+tVCB5BPxbVxfLjv0IDxchubx62e7+X0/CF8DNHgQnWFEqGiaS4geMWJkyqRrHAEXGKGEQ0xygUkWhQVGZvATAB/YFd4FcUFeI5wMvAqk6RDGgPeWM4xhg/kAkcIhw01ikCO+GPlm1/7IEj+nVjCFi4+AB3tIwbtx2m7w3ptdOc/Llm8zElBPscVYeWhFPF1sGf4BQEjiVGOlKccAeLQCmOliAsRX+AJxY8PCetoGfu7i3SV037i+AZCsy9Vdg2VrsHDjTHgz13U2FeQaZ4ZDsAMtM90idLf7VwBLIYYXo2+mzG4AlipfOQ/ikqYJ6AAb1CHhBcYbQvxHAJvWwu+Jnm++Xdd5oU142inMmu7QrAYLvUCIpwKQXgbXF/3gbtjfANh1rVjeJVbjnK/5Cn+TnNwIC3AwHxq5S+PGCHLLIyteiRC1yKcfl2CnSNYyeCCeXCk+J/46tFK2LlwIksZ9WxCzQVPjIALxzwB2pAKRERlma+warM9Xtval5proAOl8FOX6NIThX+lg05yhSsmBMcA8gI865iqWLVVH2o2oSoXcTp4uKf0rN9O4E1Lj2IBEFXykpd3J86pPF+i3jII2RCaNSDw6ZC+p/lcA6xBcZaRwndo0IErUnexaGOmIwBpDwuuU4bzlaQQVu9RSv/APdHAYXAhcPbg5MoDUNUYVO5gHpFgTIXgfIEoRFuaiIFu/doRk48PwhwAD7RGMkCQPeeSAyDIcuaetNOSJEAx2CBnCFeGTgCpCU6kIn1pxySDM3HF901GziEHlgmDShaWabnfgofMFYC+HUhIm/OSJKfvQ6aGfSBDJzJ14fU+CdWiRmrkJYWJD6KirqvInqxKFgs/DTjpySDhGEJo5L3Q17fArgPxEwX7/kZHAPD0WbslTTAbIWx0L9ysA+RBIAjlT9MhJwHHoLfsvGgg1cZfjNwCyLsN6vpJ3tyMkh3gXTJnVxTgyJsMX/ioK0xGUhe6Pz/L7AB3ZgFVh6H7hnyskwM2JLpr+r1cBB9qHxQQ+OCE6JK6xAQyfAeyHBrmWAJ7arv0eWXD0bnii+Wgwh65xHRwxSATsICkqR6YFNUIijFy+kD8dfwlwSK0lrvhcen8bvrfEoDEIsqMLJS8OsYOtsLYG3gK+QN0k+WLQbvnT6wGQ5v0RQGb54EVWf+Q6wXd+h7AO0SmCAaBWtK0awBmT3wGCsuJffAQRgvVMCnfB1OtjJ5jov5AdWpLlUh2H/hsAewMIL81SBvQNWgnuB1bokacMKVRMSZGTJnFppvl3gJ9JkBlgnJhv2btZAvgWwL4AVK2FYY/FSd21CmT4kTTMaISDhKFT0+0A+IkOsuCoDGLLyBWgJqRx35LgUABGT4fliBeeDv+BmnpF37zwEVKioU6VAew+BGgO6qIyzoKclUwcOusRm/5kifERsSytJLiB/JMTKAjCh6vEGWXSCjsfSFA+9MwS09BQXSHr9Xq95pUaBI1puj8ACHlhQUPjahV45+tmoCCuKwBNLJHU8jn+c4B0L/gFp+JJ4oDvumbFnhD893UQVgw04M+uRipHx6gaIJ6wZJbmWDn3EVQfcmE0hoJaGHsL8NyzBhboXSflsRtWWY4TLzbflSDc4CxHjSVuat1cOdxEA6G9YPmddVION/PCD5KcqdoJg6tUZIKbuUGjF5NgP3wLYCBXmC1bckyS4P59lAHi3rM8UJTTBYPpGXek9OmFH+T4BSO2J3FEBsaCDlaDvmZUU+UbAMF4mbBDWpDNQPLMOiXLbHhx2RaVE7hoAVqOYMVQBwN6HUnOZ4XvpPCe1Qmgm2d9TMniNwDW8E10dUyYTuw0KcbDPwMhXoV6j6TPyEq6nc5M5tZfkQW2B6CllhrAPFQtgRCnaWRQ+pabQajj7bjGTaHoVjiILhUOEeE2AgloGBi4bwvpVnxBFi7M9ftzcU7X9ZqVSDjvnPow/eWbfLBSSjJBg5TlGEwnMdzGltmHI3vuQgyW2MHkU6GgjyX9M9/fOtHumR7wepWOMNI1FOG3kibIJ8D30nUkS8OIEAvalpiWaEfKei5Y+QSzpv8JyfjoI0AqaXvWimzb1RCubHFMIh5D/7282CG+0lVnZJO4CSlcVzswU28A6Zy5wv7kKVUG5skF5PfKSZ6aIqxZe2oBFPC6CGFmIGKiGliO+gbAk0dkAhb2PuCOVdCqmTuFnRUAYFWZF04Xs23aTbK0swyI2XJXTE1dyreNABe6aHppyxE4B+Z+3aG7t/b5ip46WLRjXQhYh1CxMFNd3AEQUsXjazZNGBkoD7aye0rQANbUUCgIFjhS8JnqB/1bWEaGSuQ8hvSWsD7P2p2ZblRwc5Z28DWrbagbp5hLX0iOys6mr7u6AIx9j9SCfD9am3NOnZisciENLrDZ7VWui8WCrwzA63VlmBTisYpv6dYTQPZRGSfxN1bPLDVwsM2fToFZB29rRQ2wEci27bz5bxpJ2xE45MwunTwPZM3iyOkkgLUB7PUz5EJ5BdmADhrRGukPXfocID7d2WzU/pbDQxxA/MY3L6QwWBDejqbYNm04AA7M5RKfPd8WS/+q2AWLvfKFWovGQtBEyck84KgXGjDpxVcBKpS3xdVZrdlZm5qqs1mX2qldHCzZo2n3MJgkKr0p8nl2LC5QQMi/P4p1cAfw4ww/XOCrqSHjpOgcAL4lrG/mPQfeV2sMKme9YknSCqnRmp4500JLn7YADAYwqSl62zQhwlscZQOoIh7nOQ5CEp3l/ogSTnokEc/mTyGMzwDKNv35fC7VAyu8n1sDqszQTBQL+AjQD2RhyZ4NazzBzvsj3vRFbXoNrKS0ycMYwE2cwu+ZfkQ+8SFAkDFviSSRUJbEWLmKFXEudtJSbEZOEfJa3I2FfeKFYrRiN0az6AGt6GAaM3SNmt5FTUoA0a0YsqMFeuo2gsKHEmwSM8Dj2tjEZMaKOO7YtITniKkZM0NeSnQqAMhYL4DthWGFVl4lK/EPJnYGMAmf/tOqeFeLwapmW2E7y7BSqwD1EcAqgTYiStm1dzHZIxxHh1QYRICFfH1a+Ro5bwG8QMkuQRXEueTyGl54M8LdgqRm+mQzkZn+CCkgK56I3U3s4Kb9xwB9Uva4Ltt+wcnPTNAzyZqTEJKSctDzJg4HwORZgy2MjB4Q6XzFwah7R9naymqkLVeRBPXT9NOzVeu6SK35DCDcXJE+brGsdi3zTNpLQUbS+nBSqJj80Rch4YSCVZykoErxmVWVgE1vvF8TaS/jh9K4Ocs147VsrquRL/sEYPUIECpMK1tXChIoF7YPR0+PZyY3XlL/BPCkSDjCkbDfreYiowUu8parTOvwMGAwXOukvsUNPpo0rWXV5E3aiZDeMM/pQyMHutwR7kCzAb2yZ61Wpq2rxs2ccedUsVM2FVbXk0KwJQWmsh730WAQnJCkh2/NlkEoLOttAycBOWvwCC8gDw2M8UNXRQddMDDHtTGYb4C4ivkuqh+p46lopnr5liHBhkHOYCtlVia+LEJpnNQWeDaKsKzZ/FHgrEZWPmcdtTcFTJBHDiRg2RAH/HuA5TJRgr3lW4YcRD1uKuhRgpkOIpkNj5btLutmfo58T8SPUyAq6FC9IT/zTiEq9DA7GA5//ChBta/ihRQPEOFbXgM0iGueRVTI/tkIoeOgweQp2pcs7XsW5khVHt+8SbYUsWLIshXvWUbQJmpLcC8ANhyvZGETvngYRgFcBfAZpXDT7hYVKJjFM88ZJ/ZfYUFy6FNe5R5nGcIjPjXAFSWzPOBKgrqN/vDQJInRvwDYMXxVnIChnxtpr+XWzwCXRS9ltZDYrlZlSxefmMtXlIXHXSgmmccueY1xsVKyaIlxv43LqnIFvtUNnKeqXkswyl0p4wVnXO5L+ohv2yW7lHoWAcoSF1EmDisoB5cECYIOf939lXRzVAiGwV15P8nasewkDgNvWDXPAK0lYa42c+apchMkeIXyLO8ALsv9S9VqYcYz4dGJw8/pWhB0xg5xS77qjk+MwGp0tN+rJlimSj5q3akFhwxfAGxCBz8ELYJ2X/h5mKlyQa+vTYUIM2PFmG+vrsmqCiLy+4dcrLZBa5WrUvSczUVRk2EBXayb0L6y4gYEcMp0ApPVSnjbXwCEsGF04+ursmXb4xCXWsVrcRi761xqsRaCaXKuhh0ckwXPAPFz07YVLiYmbibxDLDQy32N2dL2Lzecgc6ZqjFUFN9uDpn8aOGdJEAwsnOyalTkRJhnke6NBI97wmcxTDpSO9rfZwDpd+HCEIRfAvTnFJTwQpHlEFQCYRybWDugrSmJowfsSoEJCz06UtnwEuCFs340x9HLz68vdXAHSHwI8xOrt9OLa2zU9dipBiW5zCWEKG4KNIvlyapOk8LmxMIEpPhqiQNtZFv5IVl0PJzeGx3ceYO+zjOt5KWNRNVlLJ80GYojiMNkyW/l3I+kxiq8DVrNTsM3L42EXVbcRbc2gCal1wCNJ+KGIgnmXGZ7GV9MuEugSpeUd6ZZ5MwF5jNmEdVZHHoi6WAyYWtv7cgPAM4G0LH38iWAWOIKGrS9kqDHXebN2BlJEKuTSnll1zOjMj6Fra725I0s0IJ/PAF82IzYVWnLokKq8X4F4NV00I2vdJBNJ60srW1bC0e4WQRmJNfoqA0/GBdCBrpsI/tnLwEyr2VcKgTgiwCxPEzoqvR4RY2XQYJaSZZerLlTKQtZLaTQ71WjZuQKV5j1IVTS+wjgQhKguDN/DeC1RM9UxUdnozYYWHmWe2FM4hTkSMaoSlam9vKtauwtzA2GhB/MUrD+wQ/u5UTOzqrSnovay03/GqAms9zDAPBYcreRlfFsADcrC4363AtH+qwUTYthl88S12q+QU+53O27JUYy4kIsfUr8sP+iBFfGRbivF35mUk19MbpCyieOAAWkPBlW4FfEUDfZZRUGR4VgG8MN6R3AhBitLsKmTxPZdfzKEpMUwiPLj5FNFydD4p+UDJhL3jSLXgkw1ygzLNsMeKayAzwJIb+turI7lHB3MzGwX4C3rtRcdte+BlD1CvYabFJZBsoSxDxymGImKVfKT/KlnqhWl61RKiAH7ndf4Eh9MnWGPam3fjAEZw0Ndmo5jkpT+5oVm91JDRG3SJfzxoHbZO0oLi+WTW5RdQQk6qT4eZJf3piLrsZPKEFKc0QUj0dOsk/huK74UE7ou3Tbrl8CuCrpHquANCeSCUE8GVSfu0jIKKl/66oFJnNYVlFupffUc+kj4yVdW2CxZV00V393M6UnDx3s5IgobQ4L5euRibylg08Ar5aksVATrJEKvEy86EC2bOnBQs1nxdicNmnqaOu1GGMqRRLNFAOAr8JBFtoyBJYuVgfSwJP815ExfcxX7ZusVPNTR+boLIlwvH80qmpC5vPTPFsNtQhMmUyhIlfj0hamFyQcyIv3XLhtCZCjBawW7dpAj/TkTj5BCDMolT21KVmxsQwyF9rMpIiVysK8tIql979rENxQ8hYe2GFz5yEcAJsCsJZzLuMWWyn0fAbtDnBR70qj3jUbg946C6KTLM4tKhRtVptZlTWV0nQ2EVIuBWA2Mz62J7vGlrhnEYAaYHz/ZjzuCwALaZQfAbIEc0sWcIuybmqLqsBgPoWkFTFGFn/ddVwJNvySDY+wUf4GIEkshL7Rv3v28PMX8S1KkTOnXW4b41vi1pJs8rtbLD3OzERWZOSiWvEy3wEucs9pooZurBM+AtTuN0bibVWKQI+9XH8DIKFk8SeLbzCHfDWHkmXVFtoLrWbGQ3Pc9pqInDvf2kSFnhkk/ejRHQADLAOfWvZl7fn1SwgLQDGL/c3L9hBp8GhfQwGKLeCfVSUPvix3gFj9HM/RYuGGIDi8k6D3advMRrQg1y+KcLn7xXUHeMdHlwfH7292Q8uagvztVQt+6KB6amYl5KzHNmlXm40MF3oZcsuxYoPDGlNfNJInbujKpyu5yF4F2NadWrDBiJjPKHUAvFoxsThvYj0Aqh/AsWcnR8W+gROreBPRvgSxALzeJaP6lzaGZXmQ2xgYgonvoXhGcW58b1L9ifrYvQHY2idfS0Y3v6HNX5LiscQKGHLBLN6Mnj1/mDZ7LsjNNT/GxvrTe+HMm0gl5OcEZQ5vAOJ7swH0e+L1ewDXByOx2Y3VEl/lIWNke2GnCOJAVvh5BOiSvRnkJ7VPAIEwdelIOYNk+YIgvJDbU0C5A4SCsZxAJCNZn2I1G2lVyequlrgfXMQ2V3KQj2/meOxOFthPr1w/WEZ3FVud88HUS49pPRqSB84n0T5bMQWob2lFxttqyV9yqsbSSSpVPm5IwmW1SxO/5h7K5pkCcLA9ylCdaPOUNGjDtjwULD+of7wAiEeuSt1GTthY/OCerOlmZd8HPmlexhycK6TaMrsCkL354ZidMlvfPgi5O9q3uvlCgiqX55yY6FyN8pcOMjXu+f0UA1DVyB22AjDuAFsBhKO2ouxU0ZJ4/2e6JWhFnC+M5z3AdbGc1GnnFR6fk3HY7fruvlAmjeZFJJZKWqydZjoYtEFhqFnhpEp72dsbN2hlwmV5Avjehh6XWNGcDX4SVxspVO3quSexAyTGTbMXE2MMa17DI+UPUjxVx6oYudHhrl0fpSTr5wCNuEzaGLPdzL+wzfPSZS2lbsqi9mL6QID7QRBt2weRWX5iXyfayMr01ir3/IQsk153uzP/sD06ovdLzCrGZv0GZgQc0IRzfsxvtgf3pd+cw8XHKJ2oEOomKBYzjqhRyQK3eGu2vaTHBRMDUKU/2Xo4HGFd83r9RIIrjxIYy7yw1WC2Pc9alS4f61MCI9258g4lRi7GE+TnKpt5sfmzjRtIJ+v8T0exngnvTcFUbgerwfEv5hb5Y4CruGWlydlR4yBzLuMnmZ0e9jjX7ZCoIjn7FklDwMjsTjHUtatdpf2EzLE2a+I2I6Gx2bMXqsiShVNDFoxSuAPL52v+xM1cs03Ls3SqIWaLnnJTyHiUkS4qjGy2dxqayIx81pwEdDYgU94BtuowXcsWEQ5o2kRCKfbBk+OlCpRxnLgnl9Jg1339zM3gbjNndBJzCRJoLKdNQNg7VC6el70vpdJgCjxxZdEBBEjdYLs7QFXPZcTJhkbi84gGpzaCKoBxtP4+U6D87AifI0mZnE/yLtdSB17UNKaeFO3Oedf2PO+xZC49wAiPAoDq6tSSINak4zYq/X6s6nKZNKPHgTEb37jlUillsbkEnj0n2Qdhxm5opX6sj1w5oK5aQ96nWx4vfuqDs3ICqQ4XslQBbD1rtVkRXVozcYaltFVN7zZZDbfLcNGJcZpNMFeldFAtLOIDQHa5Jv5cER8Ul7OpCCu6UYpv2j5Ren4maeGIADficT4IebYNCqrajWCzn0fAnifio/w8tK0sxWwguQeb+wJmzl2terg060GCK5ORedQAPVVVjovYEhS6cjZhpc51DEFjonit8jaNwTVBNOZZiw2P16EbZCUPjp/oaFPcHCK6Vf6g3vJLll4mMjJtFGcKjHXLhQ0eaScVkPGNnwqfTkqvoxeqMh5t2zhCDGf9ASrdga9omHNIyl+2OVZnHgZpAL0GFOgYNsY5+joNbK6a8dhEfoWw2DBVUoNRcbTZIVVgtjtAWWveEzsN2dg2c81v0QArbUg+LqvA85uV3r9xvw8nyBwnGY0C2kOWWTXv630QAsJci4tdNf2ixWJXUjY6FiO10YgjJ8lWCtSEALfoAwKPKKH+em2sovHNZTKMo2tFx6Pxee21aNuBAIdQ5qzZgTS6ltcj/uh3oUgUZ2Yti9NLUzkEqkrMUll03p5yEsPHsbmRQ31yqOamRlXp1LYspHjT2Ra6p7LS7aoUhcV+jhSr8YXXrlQ86IxWdL1XKN/MR9ksNo95YGG5D/J0LJY+Jk3qk852oAYNoteGOfouegeKQknB9viQfShsopNVuwuMhrU8mzUV6zGHUdb14bpPqNylOSsiUTatjixYH5aYxSONs6WKvjP1zlejTZfBeGzSY3malSquaVGY0p4m7UjuHWdAmCbJIpatdCf3qtW2Pc/L2HjU7ucWdnt1UEuveuQBkDlaloQ5KXoubvN2M5K4PKRjD1NXBeysUXk4MHx2sgRuBalGpbFrSTnKmSdGNfJ2kDaG9+2ek6j+mEWVeW6aTeWU0geP5qICaFbZS+mMv6yW0+8Ql+WeS+zLrUEfWQmnt7UxwKrnbHAc8lmsKV6Etot1tTtt25FZbDIXpz7E7SiNbXpRdkHh8TSVJZc2u1zq8rQ0Jp112wd/yLu5dTRqifsUbUpEnGK3BpsLXe/E41gL3JuOspiRpiI2jW004wEQr+gIHMfCPF3/YXNiC+8akkfTxcSQS77FAxLoG3kkxrsrPxKN4hTI/7e9Ykk9zVZ/0bBj1KFrAqj2XRpYUqdRbPsU6Ee43hQFjiYlrR8A3dt29APFeLgsC9g4/6TbqDquBJ01D9EjN4INIVEf6RhaRhmrxJlv3T/WkXPJFZlrW8QLTX8W5gukC/yUveviJVa7F/3oOkj1XFwsV/axgLtYH2JgNDXtk/Q0FrXPma80UOrRsh89dF+j54WjLVimjyXmDLc2vF94vMgx6jxoEJP/KpzDGydSkLrpoCpSatqVWZ6Zs5gAt8iaZZReBpRZ4UJUcDums+en1Sor9qBtY8NZec7yapNo35dJAf5xbrshDjpdkOdQdaHzSgK8jtXSvLHcmobIbOItZ0NYSPRNjGPfRiWSsR86NFrOY7PtOqjLjuvyog96juD6JIChcZ0rs+KkzQ8Uwzba4E9rnRkZiUb9qbizFrF4nHKyi/gD5Ft6kGXC/IBWMjE8JvJZ0bZW2Zh63IlNxXqWb7g7ucfPdsiPueEGDO0kXu+1Rcn7k37xXzyJad9Q0vfnijuRLD25CWPe94KMTsXUXAqgqyihJsNH49DkpjxiIwnGuWyt2betcGNDQx4Wox3QBoB27GhthyW49oOL2yCOgxA1ZV2x0sP8gGKct70zq671ZjtwGVipmqNUAzmatinwZBrS1LLr59yez21ANGzL8Q+h0nW6aF9H73Rob+3fA+wfr3Y/wFHw9lfhBbhzl0YDVdSs2G3KtoOv8B0e1gRhCVDZr9HUOotdO/JCU7PTxU1YHVMQbg2BYM+2X4T7Mp3NLdS70vHaT405t/br3DZvJWrbQnpta9VYz02xm41XznRwvZkcJCUfVTXYTo2ygdE5ItJtSjskUMlAC3oDKNG2/eNQBc+lfQb4dJlobb6Gh0a1x8YV7dJtabZ0uSyOq+CsCK1oR9Xm5hFSp5a9X8iv5sFO5ZPuG7zK4YZnKeauSt0xOFh++OnQ9meR7SMO3an0wlkeY/VTnqWy4hrHQbO6Mpn7JeARJWf7sx9snfSA8F6N7ic67V+V1S+NCO1duqN9fWlDoe2HgUUGnk3LTimZv3h8Lr91MF2IOtoBIsSt+6Fz+7klxzM+AagVk7xNaPtDPzj2vv3ojGEg1smN8s73C9GTVDs4bRBI4YPzqfe7tu399/7Ppz6Je/rX7x1j1sFx8WSeyBMr5L24RS0Gp2/xJ0L4g//BwTMpeAHzBebHlzh+XYa/Oq/igKI79yb+5kf9OYD4o7EN9iAciD1wLGFIPT1HF8r51X8JYNn0+5sAO1tEizWwPG4Z20+iC/tn+EsS/O7VdE/LIFfwl/7vH/8HD0JmxkqNTHQAAAAASUVORK5CYII=" alt="Oluwatobi Educational Consultant logo"></span><span>Tobi World Wide<small>Educational Consult</small></span></a>
     <nav class="links">
       <a href="#topics">Topics</a><a href="#blog">News</a><a href="#guide">Study guide</a><a href="#about">About</a>
-      <a href="#chat" id="chatNav" hidden>Chat</a><a href="#practice" id="practiceNav" hidden>Practice</a><a href="#help" id="helpNav" hidden>Help</a>
+      <a href="#chat" id="chatNav" hidden>Chat</a><a href="#campus" id="campusNav" hidden>Campus</a><a href="#practice" id="practiceNav" hidden>Practice</a><a href="#help" id="helpNav" hidden>Help</a>
       <a class="btn" href="#join" style="padding:9px 16px">Join the channel</a>
       <span class="userchip" id="userChip"></span>
       <button class="btn ghost sm" id="logoutBtn" type="button">Log out</button>
@@ -773,6 +848,118 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
           </div>
           <div class="tlog" id="tLog" aria-live="polite"></div>
           <form class="addsub" id="tForm" autocomplete="off"><input id="tQ" type="text" maxlength="600" placeholder="Type a topic or a question" aria-label="Your question"><button class="btn" type="submit" id="tBtn">Ask</button></form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="campus" style="padding-top:8px" hidden>
+    <div class="wrap">
+      <div class="sec-head reveal"><h2>Campus</h2><p>Deadlines, scholarships and jobs, your registration steps, timetable, notes, rooms and safety alerts in one place.</p></div>
+      <div class="calc reveal">
+        <div class="ctabs" role="tablist" id="cTabs">
+          <button class="ctab" role="tab" type="button" data-tab="money" aria-selected="true" id="ctMoney">Money and jobs</button>
+          <button class="ctab" role="tab" type="button" data-tab="steps" aria-selected="false">Registration steps</button>
+          <button class="ctab" role="tab" type="button" data-tab="plan" aria-selected="false">Timetable and exams</button>
+          <button class="ctab" role="tab" type="button" data-tab="notes" aria-selected="false">Notes</button>
+          <button class="ctab" role="tab" type="button" data-tab="market" aria-selected="false">Rooms and market</button>
+          <button class="ctab" role="tab" type="button" data-tab="safe" aria-selected="false">Scam alerts</button>
+        </div>
+
+        <div class="cpane" id="cp-money">
+          <div id="dlSummary" class="cwarn" hidden></div>
+          <h3>My deadlines</h3>
+          <form id="dlForm" class="form-grid" autocomplete="off">
+            <div class="field"><label for="dlTitle">What is due?</label><input id="dlTitle" type="text" maxlength="160" placeholder="e.g. School fees, 2nd instalment"></div>
+            <div class="field"><label for="dlKind">Type</label><select id="dlKind"><option value="fees">School fees</option><option value="nelfund">NELFUND</option><option value="scholarship">Scholarship</option><option value="exam">Exam</option><option value="other">Other</option></select></div>
+            <div class="field"><label for="dlDue">Date</label><input id="dlDue" type="date"></div>
+            <div class="field" style="justify-content:flex-end"><button class="btn" type="submit">Save deadline</button></div>
+          </form>
+          <p class="msg" id="dlMsg"></p>
+          <div id="dlList" style="display:grid;gap:8px"></div>
+          <h3>Scholarships, SIWES, internships and jobs</h3>
+          <div class="admin-actions" style="margin-top:0"><select id="oppKind" aria-label="Filter"><option value="">All</option><option>Scholarship</option><option>SIWES</option><option>Internship</option><option>Job</option><option>Other</option></select><span class="msg" id="oppMsg"></span></div>
+          <div class="cgrid" id="oppList"></div>
+          <details style="margin-top:6px"><summary style="cursor:pointer;font-weight:700">Know one that is missing? Suggest it</summary>
+            <form id="oppForm" class="form-grid" style="margin-top:12px" autocomplete="off">
+              <div class="field"><label for="soKind">Type</label><select id="soKind"><option>Scholarship</option><option>SIWES</option><option>Internship</option><option>Job</option><option>Other</option></select></div>
+              <div class="field"><label for="soTitle">Title</label><input id="soTitle" type="text" maxlength="200"></div>
+              <div class="field"><label for="soOrg">Provider or company</label><input id="soOrg" type="text" maxlength="160"></div>
+              <div class="field"><label for="soDue">Deadline (optional)</label><input id="soDue" type="date"></div>
+              <div class="field"><label for="soLink">Official link</label><input id="soLink" type="text" placeholder="https://"></div>
+              <div class="field full"><label for="soDet">Details</label><textarea id="soDet" style="min-height:80px" maxlength="1500"></textarea></div>
+              <div class="field"><button class="btn" type="submit">Send to admin</button></div>
+            </form><p class="msg" id="soMsg"></p>
+          </details>
+        </div>
+
+        <div class="cpane" id="cp-steps" hidden>
+          <p style="margin:0">Tick each step as you finish it. These steps are general, so confirm the details on your school's official portal.</p>
+          <div><b id="stepCount"></b><div class="cbar" style="margin-top:6px"><i id="stepBar"></i></div></div>
+          <div id="stepList" style="display:grid;gap:8px"></div>
+        </div>
+
+        <div class="cpane" id="cp-plan" hidden>
+          <div id="todayBox" class="ctoday" hidden></div>
+          <h3>Exam countdown</h3>
+          <div class="cgrid" id="examList"></div>
+          <h3>My weekly classes</h3>
+          <div id="classList" style="display:grid;gap:8px"></div>
+          <h3>Add a class</h3>
+          <form id="classForm" class="form-grid" autocomplete="off">
+            <div class="field"><label for="clTitle">Course</label><input id="clTitle" type="text" maxlength="160" placeholder="e.g. SWK 101"></div>
+            <div class="field"><label for="clDay">Day</label><select id="clDay"><option value="0">Monday</option><option value="1">Tuesday</option><option value="2">Wednesday</option><option value="3">Thursday</option><option value="4">Friday</option><option value="5">Saturday</option><option value="6">Sunday</option></select></div>
+            <div class="field"><label for="clTime">Time</label><input id="clTime" type="time"></div>
+            <div class="field"><label for="clVenue">Venue</label><input id="clVenue" type="text" maxlength="80"></div>
+            <div class="field" style="justify-content:flex-end"><button class="btn" type="submit">Add class</button></div>
+          </form>
+          <h3>Add an exam</h3>
+          <form id="examForm" class="form-grid" autocomplete="off">
+            <div class="field"><label for="exTitle">Course</label><input id="exTitle" type="text" maxlength="160" placeholder="e.g. GST 101"></div>
+            <div class="field"><label for="exDate">Date</label><input id="exDate" type="date"></div>
+            <div class="field"><label for="exTime">Time</label><input id="exTime" type="time"></div>
+            <div class="field"><label for="exVenue">Venue</label><input id="exVenue" type="text" maxlength="80"></div>
+            <div class="field" style="justify-content:flex-end"><button class="btn" type="submit">Add exam</button></div>
+          </form>
+          <p class="msg" id="plMsg"></p>
+        </div>
+
+        <div class="cpane" id="cp-notes" hidden>
+          <div class="admin-actions" style="margin-top:0"><input id="noteQ" type="search" placeholder="Search by course or title" style="flex:1;min-width:200px"><span class="msg" id="noteMsg"></span></div>
+          <div class="cgrid" id="noteList"></div>
+          <details style="margin-top:6px"><summary style="cursor:pointer;font-weight:700">Share a note or past question (PDF, Word, PowerPoint, image; up to 5 MB)</summary>
+            <form id="noteForm" class="form-grid" style="margin-top:12px" autocomplete="off">
+              <div class="field"><label for="nvSub">Course</label><input id="nvSub" type="text" maxlength="120" list="nvSubs" placeholder="e.g. SWK 101"><datalist id="nvSubs"></datalist></div>
+              <div class="field"><label for="nvTitle">Title</label><input id="nvTitle" type="text" maxlength="160" placeholder="e.g. Lecture 1 notes"></div>
+              <div class="field full"><label for="nvDesc">Short note (optional)</label><input id="nvDesc" type="text" maxlength="400"></div>
+              <div class="field full"><label for="nvFile">File</label><input id="nvFile" type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.png,.jpg,.jpeg,.txt"></div>
+              <div class="field"><button class="btn" type="submit" id="nvBtn">Upload</button></div>
+            </form><p class="msg" id="nvMsg"></p>
+          </details>
+        </div>
+
+        <div class="cpane" id="cp-market" hidden>
+          <div class="cwarn">Only students of your school see these. Never pay before you have seen the room or the item, and meet in a public place.</div>
+          <div class="admin-actions" style="margin-top:0"><select id="mkKind" aria-label="Filter"><option value="">All</option><option value="hostel">Hostel or room</option><option value="roommate">Roommate</option><option value="sale">For sale</option><option value="other">Other</option></select><span class="msg" id="mkMsg"></span></div>
+          <div class="cgrid" id="mkList"></div>
+          <details style="margin-top:6px"><summary style="cursor:pointer;font-weight:700">Post a room, roommate request or item</summary>
+            <form id="mkForm" class="form-grid" style="margin-top:12px" autocomplete="off">
+              <div class="field"><label for="pkKind">Type</label><select id="pkKind"><option value="hostel">Hostel or room</option><option value="roommate">Roommate wanted</option><option value="sale">For sale</option><option value="other">Other</option></select></div>
+              <div class="field"><label for="pkTitle">Title</label><input id="pkTitle" type="text" maxlength="160" placeholder="e.g. Self-contain near campus gate"></div>
+              <div class="field"><label for="pkPrice">Price (optional)</label><input id="pkPrice" type="text" maxlength="40"></div>
+              <div class="field full"><label for="pkDet">Details</label><textarea id="pkDet" style="min-height:80px" maxlength="800"></textarea></div>
+              <div class="field"><button class="btn" type="submit">Post</button></div>
+            </form>
+            <p class="note-small" style="text-align:left">Your WhatsApp number will show on the post so buyers can reach you. The admin checks every post first.</p><p class="msg" id="pkMsg"></p>
+          </details>
+        </div>
+
+        <div class="cpane" id="cp-safe" hidden>
+          <div id="scamList" style="display:grid;gap:10px"></div>
+          <h3>How to spot a scam</h3>
+          <ul style="margin:0;padding-left:20px;line-height:1.7"><li>Real admissions and scholarships never ask you to pay an agent or to send money to a personal account.</li><li>Check every admission list on the school's own portal and on JAMB CAPS.</li><li>Never share your JAMB or school portal password, your BVN or your card PIN.</li><li>If it sounds too good to be true, it is. Ask on the group before you pay.</li></ul>
+          <h3>Report a scam</h3>
+          <form id="scamForm" autocomplete="off"><div class="field"><label for="scText">What happened? Include the link, name or number involved.</label><textarea id="scText" style="min-height:90px" maxlength="1500"></textarea></div><div class="admin-actions"><button class="btn" type="submit">Send report to admin</button><span class="msg" id="scMsg"></span></div></form>
         </div>
       </div>
     </div>
@@ -1916,7 +2103,7 @@ $('#stuList').addEventListener('click',async function(e){
 $('#stuCsv').addEventListener('click',studentsCsv);
 $('#stuRefresh').addEventListener('click',drawStudents);
 async function drawStaff(){
-  drawStudents();drawRequests();drawAnnAdmin();drawCbtAdmin();
+  drawStudents();drawRequests();drawAnnAdmin();drawCbtAdmin();drawCampusAdmin();
   var j=await call('GET','/api/admin/staff');if(j.error)return;$('#staffPanel').hidden=false;
   $('#aiInfo').textContent=j.ai?'AI search verifies that sources open and match each headline. Official allowlisted sources may auto-publish; other stories wait for review. Students registered: '+j.students+'.':'AI is OFF. Add GEMINI_API_KEY on the server to enable verified news search.';
   $('#autoPub').checked=!!j.settings.autoPublish;
@@ -1989,6 +2176,7 @@ function apiOn(){return Store.mode==='api'}
 async function loadExtras(){
   var on=apiOn()&&!APP.admin;
   ['#help','#practice','#helpNav','#practiceNav'].forEach(function(s){var el=$(s);if(el)el.hidden=!on});
+  loadCampus();
   if(!on){$('#annBar').hidden=true;return}
   loadAnnouncements();loadMyRequests();loadCbtSubjects();
 }
@@ -2230,6 +2418,213 @@ $('#cbList').addEventListener('click',async function(e){
 $('#autoSearch').addEventListener('change',async function(){
   var on=this.checked,r=await call('POST','/api/admin/settings',{autoSearch:on});
   if(r.error){this.checked=!on;say($('#newsMsg'),r.error,false)}else say($('#newsMsg'),on?'The site will search for news by itself once a day.':'Daily automatic search is off.',true);
+});
+/* ===== campus hub (student) ===== */
+var DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+var CAMPUS={loaded:{},notes:[],listings:[]};
+function apiToken(){try{return localStorage.getItem('tww_api_token')||sessionStorage.getItem('tww_api_token')||''}catch(e){return ''}}
+function dueChip(d){if(d===null)return '';return '<span class="pill'+(d<0?' hot':d<=3?' hot':'')+'">'+(d<0?'Overdue by '+(-d)+' day'+(d===-1?'':'s'):d===0?'Today':d===1?'Tomorrow':'In '+d+' days')+'</span>'}
+function showTab(root,prefix,tab){
+  Array.prototype.forEach.call($(root).querySelectorAll('.ctab'),function(b){b.setAttribute('aria-selected',String(b.dataset.tab===tab))});
+  Array.prototype.forEach.call(document.querySelectorAll('[id^="'+prefix+'"]'),function(p){if(p.classList.contains('cpane'))p.hidden=(p.id!==prefix+tab)});
+}
+$('#cTabs').addEventListener('click',function(e){var b=e.target.closest('.ctab');if(!b)return;showTab('#cTabs','cp-',b.dataset.tab);loadTab(b.dataset.tab)});
+function loadTab(t){
+  if(t==='money'){loadDeadlines();loadOpps()}
+  if(t==='steps')loadSteps();
+  if(t==='plan')loadPlan();
+  if(t==='notes')loadNotes();
+  if(t==='market')loadMarket();
+  if(t==='safe')loadScams();
+}
+async function loadCampus(){
+  var on=apiOn()&&!APP.admin;
+  $('#campus').hidden=!on;$('#campusNav').hidden=!on;if(!on)return;
+  loadTab('money');
+}
+
+/* deadlines + opportunities */
+var DL=[];
+async function loadDeadlines(){
+  var l=await call('GET','/api/deadlines');if(!Array.isArray(l))return;DL=l;
+  var open=l.filter(function(x){return !x.done}),soon=open.filter(function(x){var d=daysLeft(x.due);return d!==null&&d<=3});
+  var s=$('#dlSummary');s.hidden=!soon.length;
+  if(soon.length)s.innerHTML='<b>Due soon:</b> '+soon.map(function(x){var d=daysLeft(x.due);return esc(x.title)+' ('+(d<0?'overdue':d===0?'today':d===1?'tomorrow':'in '+d+' days')+')'}).join(', ');
+  $('#ctMoney').textContent='Money and jobs'+(soon.length?' ('+soon.length+' due soon)':'');
+  $('#dlList').innerHTML=l.length?l.map(function(x){var d=daysLeft(x.due);return row((x.done?'<s>':'')+esc(x.title)+(x.done?'</s>':'')+' '+(x.done?'':dueChip(d)),esc(fmtDate(x.due))+' · '+esc(x.kind),bt('dl-done',x.id,x.done?'Undo':'Done')+bt('dl-del',x.id,'Delete','danger'))}).join(''):'<p class="note-small" style="text-align:left">Nothing saved yet. Add your fees, NELFUND and scholarship dates so you never miss one.</p>';
+}
+$('#dlForm').addEventListener('submit',async function(e){
+  e.preventDefault();var r=await call('POST','/api/deadlines',{title:$('#dlTitle').value,kind:$('#dlKind').value,due:$('#dlDue').value});
+  if(r.error)return say($('#dlMsg'),r.error);$('#dlTitle').value='';say($('#dlMsg'),'Saved.',true);loadDeadlines();
+});
+$('#dlList').addEventListener('click',async function(e){
+  var b=e.target.closest('button[data-act]');if(!b)return;var id=b.dataset.id;
+  if(b.dataset.act==='dl-del'){await call('DELETE','/api/deadlines/'+id)}
+  else{var cur=DL.filter(function(x){return String(x.id)===String(id)})[0];await call('POST','/api/deadlines/'+id,{done:!(cur&&cur.done)})}
+  loadDeadlines();
+});
+var OPPS=[];
+async function loadOpps(){
+  var l=await call('GET','/api/opportunities'+($('#oppKind').value?'?kind='+encodeURIComponent($('#oppKind').value):''));
+  if(!Array.isArray(l)){say($('#oppMsg'),'Could not load the board.');return}
+  OPPS=l;say($('#oppMsg'),'',true);
+  $('#oppList').innerHTML=l.length?l.map(function(o){var d=daysLeft(o.deadline);
+    return '<div class="ccard"><span class="pill">'+esc(o.kind)+'</span><b>'+esc(o.title)+'</b><small>'+esc([o.org,o.location].filter(Boolean).join(' · '))+'</small>'+(o.deadline?'<small>Deadline: '+esc(fmtDate(o.deadline))+' '+dueChip(d)+'</small>':'')+(o.details?'<p>'+esc(o.details)+'</p>':'')+
+    '<div class="row2">'+(o.link?'<a class="btn sm" target="_blank" rel="noopener noreferrer" href="'+esc(o.link)+'">Open official page</a>':'')+(o.deadline?'<button type="button" class="btn ghost sm" data-opp="'+o.id+'">Add to my deadlines</button>':'')+'</div></div>'}).join(''):'<p class="note-small" style="text-align:left">Nothing posted here right now. Check back soon.</p>';
+}
+$('#oppKind').addEventListener('change',loadOpps);
+$('#oppList').addEventListener('click',async function(e){
+  var b=e.target.closest('[data-opp]');if(!b)return;var o=OPPS.filter(function(x){return String(x.id)===b.dataset.opp})[0];if(!o)return;
+  var r=await call('POST','/api/deadlines',{title:o.title,kind:o.kind==='Scholarship'?'scholarship':'other',due:o.deadline});
+  if(r.error)return say($('#oppMsg'),r.error);b.textContent='Added';b.disabled=true;loadDeadlines();
+});
+$('#oppForm').addEventListener('submit',async function(e){
+  e.preventDefault();var r=await call('POST','/api/opportunities',{kind:$('#soKind').value,title:$('#soTitle').value,org:$('#soOrg').value,deadline:$('#soDue').value,link:$('#soLink').value,details:$('#soDet').value});
+  if(r.error)return say($('#soMsg'),r.error);say($('#soMsg'),r.message||'Sent.',true);$('#oppForm').reset();
+});
+
+/* registration steps */
+async function loadSteps(){
+  var l=await call('GET','/api/checklist');if(!Array.isArray(l))return;
+  var done=l.filter(function(x){return x.done}).length;
+  $('#stepCount').textContent=done+' of '+l.length+' steps done';$('#stepBar').style.width=(l.length?Math.round(done/l.length*100):0)+'%';
+  $('#stepList').innerHTML=l.map(function(x){return '<label class="cstep'+(x.done?' done':'')+'"><input type="checkbox" data-step="'+x.id+'"'+(x.done?' checked':'')+'><div><b>'+esc(x.title)+(x.school?' <span class="pill">Your school</span>':'')+'</b>'+(x.details?'<span>'+esc(x.details)+'</span>':'')+'</div></label>'}).join('');
+}
+$('#stepList').addEventListener('change',async function(e){
+  var c=e.target.closest('[data-step]');if(!c)return;
+  await call('POST','/api/checklist/'+c.dataset.step,{done:c.checked});loadSteps();
+});
+
+/* timetable + exams */
+async function loadPlan(){
+  var l=await call('GET','/api/schedule');if(!Array.isArray(l))return;
+  var today=(new Date().getDay()+6)%7;
+  var classes=l.filter(function(x){return x.kind==='class'}),exams=l.filter(function(x){return x.kind==='exam'});
+  var tc=classes.filter(function(x){return x.day===today}).sort(function(a,b){return a.time<b.time?-1:1});
+  var next=exams.map(function(x){return {x:x,d:daysLeft(x.date)}}).filter(function(x){return x.d!==null&&x.d>=0}).sort(function(a,b){return a.d-b.d});
+  var box=$('#todayBox');
+  if(tc.length||next.length){box.hidden=false;box.innerHTML='<small>Today, '+DAYS[today]+'</small><br>'+(tc.length?tc.map(function(x){return esc((x.time?x.time+' ':'')+x.title+(x.venue?' @ '+x.venue:''))}).join(' · '):'No classes today.')+(next.length&&next[0].d<=7?'<br><small>Next exam: '+esc(next[0].x.title)+' '+(next[0].d===0?'is today':next[0].d===1?'is tomorrow':'in '+next[0].d+' days')+'</small>':'')}
+  else box.hidden=true;
+  $('#examList').innerHTML=next.length?next.map(function(n){return '<div class="ccard"><b>'+esc(n.x.title)+'</b><small>'+esc(fmtDate(n.x.date))+(n.x.time?' · '+esc(n.x.time):'')+(n.x.venue?' · '+esc(n.x.venue):'')+'</small><strong style="font:800 1.6rem var(--f-display);color:var(--brand)">'+(n.d===0?'Today':n.d+' day'+(n.d===1?'':'s'))+'</strong><div class="row2"><button class="btn danger sm" type="button" data-sdel="'+n.x.id+'">Remove</button></div></div>'}).join(''):'<p class="note-small" style="text-align:left">No upcoming exams added.</p>';
+  $('#classList').innerHTML=classes.length?classes.sort(function(a,b){return a.day-b.day||(a.time<b.time?-1:1)}).map(function(x){return row(esc(x.title),esc(DAYS[x.day])+(x.time?' · '+esc(x.time):'')+(x.venue?' · '+esc(x.venue):''),bt('cl-del',x.id,'Remove','danger'))}).join(''):'<p class="note-small" style="text-align:left">No classes added yet.</p>';
+}
+$('#classForm').addEventListener('submit',async function(e){
+  e.preventDefault();var r=await call('POST','/api/schedule',{kind:'class',title:$('#clTitle').value,day:Number($('#clDay').value),time:$('#clTime').value,venue:$('#clVenue').value});
+  if(r.error)return say($('#plMsg'),r.error);$('#clTitle').value='';say($('#plMsg'),'Class added.',true);loadPlan();
+});
+$('#examForm').addEventListener('submit',async function(e){
+  e.preventDefault();var r=await call('POST','/api/schedule',{kind:'exam',title:$('#exTitle').value,date:$('#exDate').value,time:$('#exTime').value,venue:$('#exVenue').value});
+  if(r.error)return say($('#plMsg'),r.error);$('#exTitle').value='';say($('#plMsg'),'Exam added.',true);loadPlan();
+});
+$('#cp-plan').addEventListener('click',async function(e){
+  var b=e.target.closest('[data-sdel],[data-act="cl-del"]');if(!b)return;
+  await call('DELETE','/api/schedule/'+(b.dataset.sdel||b.dataset.id));loadPlan();
+});
+
+/* notes */
+function offlineMeta(){try{return JSON.parse(localStorage.getItem('tww_offline_notes')||'{}')}catch(e){return {}}}
+function fmtSize(n){return n>1048576?(n/1048576).toFixed(1)+' MB':Math.max(1,Math.round(n/1024))+' KB'}
+async function loadNotes(){
+  var l=await call('GET','/api/materials');
+  if(!Array.isArray(l)){say($('#noteMsg'),'Could not load notes. Saved notes are on the offline page.');return}
+  CAMPUS.notes=l;drawNotes();
+  var subs={};l.forEach(function(x){subs[x.subject]=1});(APP.user&&APP.user.subjects||[]).forEach(function(s){if(s&&s.t)subs[s.t]=1});
+  $('#nvSubs').innerHTML=Object.keys(subs).map(function(s){return '<option value="'+esc(s)+'"></option>'}).join('');
+}
+function drawNotes(){
+  var q=$('#noteQ').value.trim().toLowerCase(),saved=offlineMeta();
+  var l=CAMPUS.notes.filter(function(x){return !q||(x.subject+' '+x.title).toLowerCase().indexOf(q)>=0});
+  $('#noteList').innerHTML=l.length?l.map(function(x){return '<div class="ccard"><span class="pill">'+esc(x.subject)+'</span><b>'+esc(x.title)+'</b>'+(x.desc?'<p>'+esc(x.desc)+'</p>':'')+'<small>'+esc(x.name)+' · '+fmtSize(x.size)+(x.status==='pending'?' · waiting for admin approval':'')+'</small><div class="row2"><button type="button" class="btn sm" data-dl="'+x.id+'">Download</button>'+(window.caches?'<button type="button" class="btn ghost sm" data-save="'+x.id+'">'+(saved[x.id]?'Saved offline':'Save offline')+'</button>':'')+'</div></div>'}).join(''):'<p class="note-small" style="text-align:left">No notes yet. Be the first to share one.</p>';
+}
+$('#noteQ').addEventListener('input',drawNotes);
+async function fetchNote(id){
+  var r=await fetch(apiUrl('/api/materials/'+id+'/file'),{headers:{authorization:'Bearer '+apiToken()}});
+  if(!r.ok)throw new Error('Could not download the file.');return r;
+}
+$('#noteList').addEventListener('click',async function(e){
+  var b=e.target.closest('[data-dl],[data-save]');if(!b)return;var id=b.dataset.dl||b.dataset.save,n=CAMPUS.notes.filter(function(x){return String(x.id)===id})[0];if(!n)return;
+  b.disabled=true;
+  try{
+    var r=await fetchNote(id);
+    if(b.dataset.dl){var blob=await r.blob(),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=n.name;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},800)}
+    else{var c=await caches.open('tww-notes');await c.put('/offline-note/'+id,new Response(await r.blob(),{headers:{'content-type':n.type,'content-disposition':'inline; filename="'+n.name.replace(/[^\x20-\x7E]/g,'_')+'"'}}));
+      var meta=offlineMeta();meta[id]={title:n.title,subject:n.subject,name:n.name};try{localStorage.setItem('tww_offline_notes',JSON.stringify(meta))}catch(x){}
+      b.textContent='Saved offline';toast('Saved. You can open it without data.')}
+  }catch(x){say($('#noteMsg'),x.message||'Failed.')}
+  b.disabled=false;
+});
+$('#noteForm').addEventListener('submit',async function(e){
+  e.preventDefault();var f=$('#nvFile').files[0],m=$('#nvMsg');
+  if(!f)return say(m,'Choose a file.');if(f.size>5*1024*1024)return say(m,'That file is over 5 MB.');
+  $('#nvBtn').disabled=true;say(m,'Uploading...',true);
+  try{
+    var r=await fetch(apiUrl('/api/materials'),{method:'POST',headers:{authorization:'Bearer '+apiToken(),'content-type':f.type||'application/octet-stream','x-title':encodeURIComponent($('#nvTitle').value),'x-subject':encodeURIComponent($('#nvSub').value),'x-desc':encodeURIComponent($('#nvDesc').value),'x-filename':encodeURIComponent(f.name)},body:f});
+    var j=await r.json().catch(function(){return {}});
+    if(!r.ok)say(m,j.error||'Upload failed.');else{say(m,j.message||'Uploaded.',true);$('#noteForm').reset();loadNotes()}
+  }catch(x){say(m,'Cannot reach the server.')}
+  $('#nvBtn').disabled=false;
+});
+
+/* rooms and market */
+async function loadMarket(){
+  var l=await call('GET','/api/listings');if(!Array.isArray(l)){say($('#mkMsg'),'Could not load posts.');return}
+  CAMPUS.listings=l;drawMarket();
+}
+var KIND_LABEL={hostel:'Hostel or room',roommate:'Roommate',sale:'For sale',other:'Other'};
+function drawMarket(){
+  var k=$('#mkKind').value,l=CAMPUS.listings.filter(function(x){return !k||x.kind===k});
+  $('#mkList').innerHTML=l.length?l.map(function(x){
+    var wa=x.phone?'<a class="btn wa sm" target="_blank" rel="noopener" href="'+esc(waLink(x.phone,'Hello '+x.by+', I saw your post "'+x.title+'" on TOBI WORLD WIDE. Is it still available?'))+'">WhatsApp '+esc(x.by)+'</a>':'';
+    return '<div class="ccard"><span class="pill">'+esc(KIND_LABEL[x.kind]||x.kind)+'</span><b>'+esc(x.title)+'</b>'+(x.price?'<small>'+esc(x.price)+'</small>':'')+(x.details?'<p>'+esc(x.details)+'</p>':'')+'<small>Posted by '+esc(x.by)+(x.status==='pending'?' · waiting for admin approval':'')+'</small><div class="row2">'+wa+(x.mine?'<button type="button" class="btn danger sm" data-lst="'+x.id+'">Delete</button>':'')+'</div></div>'}).join(''):'<p class="note-small" style="text-align:left">No posts yet.</p>';
+}
+$('#mkKind').addEventListener('change',drawMarket);
+$('#mkList').addEventListener('click',async function(e){var b=e.target.closest('[data-lst]');if(!b)return;await call('DELETE','/api/listings/'+b.dataset.lst);loadMarket()});
+$('#mkForm').addEventListener('submit',async function(e){
+  e.preventDefault();var r=await call('POST','/api/listings',{kind:$('#pkKind').value,title:$('#pkTitle').value,price:$('#pkPrice').value,details:$('#pkDet').value});
+  if(r.error)return say($('#pkMsg'),r.error);say($('#pkMsg'),r.message,true);$('#mkForm').reset();loadMarket();
+});
+
+/* scam alerts */
+async function loadScams(){
+  var l=await call('GET','/api/scam-alerts');
+  $('#scamList').innerHTML=Array.isArray(l)&&l.length?l.map(function(x){return '<div class="ccard" style="border-color:var(--err)"><span class="pill hot">Scam alert</span><b>'+esc(x.title)+'</b>'+(x.details?'<p>'+esc(x.details)+'</p>':'')+'<small>'+esc(fmtD(x.created))+'</small></div>'}).join(''):'<p class="note-small" style="text-align:left">No active alerts right now.</p>';
+}
+$('#scamForm').addEventListener('submit',async function(e){
+  e.preventDefault();var r=await call('POST','/api/requests',{kind:'Scam report',details:$('#scText').value});
+  if(r.error)return say($('#scMsg'),r.error);$('#scText').value='';say($('#scMsg'),'Sent. Thank you for protecting other students.',true);
+});
+
+/* ===== campus hub (admin) ===== */
+var AC={};
+async function drawCampusAdmin(){
+  if(!apiOn()){$('#campusPanel').hidden=true;return}
+  $('#campusPanel').hidden=false;var j=await call('GET','/api/admin/campus');if(!j||j.error)return;AC=j;
+  var pend=j.opportunities.filter(function(x){return x.status==='pending'}).length+j.materials.filter(function(x){return x.status==='pending'}).length+j.listings.filter(function(x){return x.status==='pending'}).length;
+  $('#cpCount').textContent=pend?'('+pend+' waiting for approval)':'';
+  var pill=function(s){return s==='pending'?' <span class="pill new">Pending</span>':''};
+  $('#aoList').innerHTML=j.opportunities.map(function(o){return row(esc(o.title)+pill(o.status),esc(o.kind)+(o.org?' · '+esc(o.org):'')+(o.deadline?' · '+esc(o.deadline):'')+(o.link?' · <a href="'+esc(o.link)+'" target="_blank" rel="noopener noreferrer">link</a>':''),(o.status==='pending'?bt('ca-ok-opportunities',o.id,'Approve'):'')+bt('ca-del-opportunities',o.id,'Delete','danger'))}).join('')||'<p class="note-small" style="text-align:left">Nothing yet.</p>';
+  $('#anList').innerHTML=j.materials.map(function(o){return row(esc(o.title)+pill(o.status),esc(o.subject)+' · '+esc(o.name)+' · '+fmtSize(o.size)+' · by '+esc(o.by),(o.status==='pending'?bt('ca-ok-materials',o.id,'Approve'):'')+bt('ca-del-materials',o.id,'Delete','danger'))}).join('')||'<p class="note-small" style="text-align:left">No files yet.</p>';
+  $('#amList').innerHTML=j.listings.map(function(o){return row(esc(o.title)+pill(o.status),esc(o.kind)+(o.price?' · '+esc(o.price):'')+' · '+esc(o.school)+' · by '+esc(o.by)+(o.details?'<br>'+esc(o.details):''),(o.status==='pending'?bt('ca-ok-listings',o.id,'Approve'):'')+bt('ca-del-listings',o.id,'Delete','danger'))}).join('')||'<p class="note-small" style="text-align:left">No posts yet.</p>';
+  $('#asList').innerHTML=j.steps.map(function(o){return row(esc(o.title),esc(o.school),bt('ca-del-checklist',o.id,'Delete','danger'))}).join('');
+  $('#acList').innerHTML=j.scams.map(function(o){return row(esc(o.title),esc(o.details),bt('ca-del-scam-alerts',o.id,'Delete','danger'))}).join('')||'<p class="note-small" style="text-align:left">No alerts yet.</p>';
+}
+$('#acTabs').addEventListener('click',function(e){var b=e.target.closest('.ctab');if(!b)return;showTab('#acTabs','ac-',b.dataset.tab)});
+$('#campusPanel').addEventListener('click',async function(e){
+  var b=e.target.closest('button[data-act]');if(!b||b.dataset.act.indexOf('ca-')!==0)return;
+  var p=b.dataset.act.split('-'),verb=p[1],table=p.slice(2).join('-');
+  if(verb==='del'&&!b.dataset.sure){b.dataset.sure='1';b.textContent='Click again to delete';return}
+  var r=verb==='ok'?await call('POST','/api/admin/'+table+'/'+b.dataset.id+'/approve'):await call('DELETE','/api/admin/'+table+'/'+b.dataset.id);
+  if(r.error)return say($('#acMsg'),r.error);drawCampusAdmin();
+});
+async function adminPost(url,body,form,msg){var r=await call('POST',url,body);if(r.error)return say($('#acMsg'),r.error);$(form).reset();say($('#acMsg'),msg,true);drawCampusAdmin()}
+$('#aoForm').addEventListener('submit',function(e){e.preventDefault();adminPost('/api/admin/opportunities',{kind:$('#aoKind').value,title:$('#aoTitle').value,org:$('#aoOrg').value,location:$('#aoLoc').value,deadline:$('#aoDue').value,link:$('#aoLink').value,details:$('#aoDet').value},'#aoForm','Published.')});
+$('#asForm').addEventListener('submit',function(e){e.preventDefault();adminPost('/api/admin/checklist',{title:$('#asTitle').value,details:$('#asDet').value,school:$('#asSchool').value},'#asForm','Step added.')});
+$('#acForm').addEventListener('submit',function(e){e.preventDefault();adminPost('/api/admin/scam-alerts',{title:$('#acTitle').value,details:$('#acDet').value},'#acForm','Alert published. Students see it under Scam alerts.')});
+$('#anForm').addEventListener('submit',async function(e){
+  e.preventDefault();var f=$('#anvFile').files[0],m=$('#acMsg');if(!f)return say(m,'Choose a file.');if(f.size>5*1024*1024)return say(m,'That file is over 5 MB.');
+  say(m,'Uploading...',true);
+  try{var r=await fetch(apiUrl('/api/materials'),{method:'POST',headers:{authorization:'Bearer '+apiToken(),'content-type':f.type||'application/octet-stream','x-title':encodeURIComponent($('#anvTitle').value),'x-subject':encodeURIComponent($('#anvSub').value),'x-filename':encodeURIComponent(f.name)},body:f});
+    var j=await r.json().catch(function(){return {}});if(!r.ok)return say(m,j.error||'Upload failed.');$('#anForm').reset();say(m,'Added. Students can see it now.',true);drawCampusAdmin()}catch(x){say(m,'Cannot reach the server.')}
 });
 /* ---- start ---- */
 (async function boot(){

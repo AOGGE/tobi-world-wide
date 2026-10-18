@@ -182,3 +182,94 @@ CREATE TABLE IF NOT EXISTS PasswordResets (
 
 ALTER TABLE NewsDeskSettings ADD COLUMN IF NOT EXISTS AutoSearch BOOLEAN NOT NULL DEFAULT TRUE;
 ALTER TABLE NewsDeskSettings ADD COLUMN IF NOT EXISTS LastAutoRun TIMESTAMPTZ;
+
+-- Campus hub: opportunities (scholarships, SIWES, internships, jobs), personal deadlines, checklist, timetable, notes, market, scam alerts
+CREATE TABLE IF NOT EXISTS Opportunities (
+  Id BIGSERIAL PRIMARY KEY,
+  Kind VARCHAR(20) NOT NULL,
+  Title VARCHAR(200) NOT NULL,
+  Org VARCHAR(160),
+  Location VARCHAR(120),
+  Deadline DATE,
+  Link VARCHAR(500),
+  Details VARCHAR(1500),
+  Status VARCHAR(12) NOT NULL DEFAULT 'approved',
+  SubmittedBy BIGINT REFERENCES StudentProfiles(Id) ON DELETE SET NULL,
+  CreatedAt TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS StudentDeadlines (
+  Id BIGSERIAL PRIMARY KEY,
+  StudentId BIGINT NOT NULL REFERENCES StudentProfiles(Id) ON DELETE CASCADE,
+  Title VARCHAR(160) NOT NULL,
+  Kind VARCHAR(20) NOT NULL DEFAULT 'other',
+  DueDate DATE NOT NULL,
+  Done BOOLEAN NOT NULL DEFAULT FALSE,
+  CreatedAt TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS ChecklistItems (
+  Id BIGSERIAL PRIMARY KEY,
+  UniversityId BIGINT REFERENCES Universities(Id) ON DELETE CASCADE,
+  Title VARCHAR(200) NOT NULL,
+  Details VARCHAR(600),
+  Pos INT NOT NULL DEFAULT 100,
+  CreatedAt TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS ChecklistDone (
+  StudentId BIGINT NOT NULL REFERENCES StudentProfiles(Id) ON DELETE CASCADE,
+  ItemId BIGINT NOT NULL REFERENCES ChecklistItems(Id) ON DELETE CASCADE,
+  PRIMARY KEY (StudentId, ItemId)
+);
+CREATE TABLE IF NOT EXISTS StudentSchedule (
+  Id BIGSERIAL PRIMARY KEY,
+  StudentId BIGINT NOT NULL REFERENCES StudentProfiles(Id) ON DELETE CASCADE,
+  Kind VARCHAR(8) NOT NULL,
+  Title VARCHAR(160) NOT NULL,
+  DayNo INT,
+  StartTime VARCHAR(8),
+  Venue VARCHAR(80),
+  ExamDate DATE
+);
+CREATE TABLE IF NOT EXISTS Materials (
+  Id BIGSERIAL PRIMARY KEY,
+  Subject VARCHAR(120) NOT NULL,
+  Title VARCHAR(160) NOT NULL,
+  Description VARCHAR(400),
+  FileName VARCHAR(200) NOT NULL,
+  MimeType VARCHAR(100) NOT NULL,
+  SizeBytes INT NOT NULL,
+  Data BYTEA NOT NULL,
+  Status VARCHAR(12) NOT NULL DEFAULT 'pending',
+  UploaderId BIGINT REFERENCES StudentProfiles(Id) ON DELETE SET NULL,
+  CreatedAt TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS Listings (
+  Id BIGSERIAL PRIMARY KEY,
+  StudentId BIGINT NOT NULL REFERENCES StudentProfiles(Id) ON DELETE CASCADE,
+  UniversityId BIGINT NOT NULL,
+  Kind VARCHAR(12) NOT NULL,
+  Title VARCHAR(160) NOT NULL,
+  Details VARCHAR(800),
+  Price VARCHAR(40),
+  Status VARCHAR(12) NOT NULL DEFAULT 'pending',
+  CreatedAt TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS ScamAlerts (
+  Id BIGSERIAL PRIMARY KEY,
+  Title VARCHAR(160) NOT NULL,
+  Details VARCHAR(1000),
+  CreatedAt TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+INSERT INTO ChecklistItems (Title, Details, Pos)
+SELECT v.t, v.d, v.p FROM (VALUES
+  ('Check your admission status', 'Use the official school portal and JAMB CAPS only. Ignore admission lists sent by agents.', 1),
+  ('Accept the admission on JAMB CAPS', 'Accept or reject within the time JAMB gives you.', 2),
+  ('Pay the acceptance fee', 'Pay only on the school official portal and keep the receipt.', 3),
+  ('Complete screening and document verification', 'Take your original credentials: O-level results, birth certificate, passport photos, JAMB result slip.', 4),
+  ('Print your admission letter', 'Print it from the school portal after screening.', 5),
+  ('Pay your school fees', 'Check the fee schedule on the official portal. Keep every receipt safe.', 6),
+  ('Register your courses', 'Do it every semester, before the registration deadline.', 7),
+  ('Get your matric number and student ID card', 'Needed for exams, library and hostel.', 8),
+  ('Do your medical examination', 'Use the school health centre and keep the clearance slip.', 9),
+  ('Sort out your hostel', 'Apply on campus early, or look for an off-campus room.', 10),
+  ('Join your department and class WhatsApp groups', 'Ask your class rep so you do not miss notices.', 11)
+) AS v(t, d, p) WHERE NOT EXISTS (SELECT 1 FROM ChecklistItems);

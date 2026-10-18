@@ -160,6 +160,7 @@ const COLUMN_NAMES = ('Id FullName Email IsAdmin UniversityId University Usernam
   + 'SourceTitle Connected UserType UserId Matric Programme Subjects AiOutline Phone IsSuspended Code').split(' ');
 const CANONICAL = new Map(COLUMN_NAMES.map(name => [name.toLowerCase(), name]));
 types.setTypeParser(20, value => Number(value)); // BIGINT / COUNT(*) as numbers
+types.setTypeParser(1082, value => value); // DATE stays 'YYYY-MM-DD'
 
 function restoreCase(row) {
   for (const key of Object.keys(row)) {

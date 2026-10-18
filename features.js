@@ -3,7 +3,7 @@
 // password reset, and the background scheduler. Wired into server.js via makeFeatures(deps).
 const crypto = require('crypto');
 
-const REQUEST_KINDS = ['Admission processing', 'Hostel accommodation', 'NELFUND', 'Scholarship form', 'Password reset', 'Other'];
+const REQUEST_KINDS = ['Admission processing', 'Hostel accommodation', 'NELFUND', 'Scholarship form', 'Scam report', 'Password reset', 'Other'];
 const REQUEST_STATUS = ['new', 'in_progress', 'done'];
 
 function clip(value, max) {
@@ -33,6 +33,8 @@ function cleanQuestion(raw, subject, source) {
   if ((answer === 'C' && !c) || (answer === 'D' && !d)) return null;
   return { subject: clip(subject, 120), question, a, b, c: c || null, d: d || null, answer, explanation: clip(raw.explanation || raw.why, 700) || null, source };
 }
+
+const makeCampus = require('./campus');
 
 module.exports = function makeFeatures(deps) {
   const {
@@ -90,8 +92,11 @@ module.exports = function makeFeatures(deps) {
     return { id: r.id, q: r.question, o: { A: r.opta, B: r.optb, C: r.optc || '', D: r.optd || '' }, a: String(r.answer).trim(), e: r.explanation || '' };
   }
 
+  const campus = makeCampus(deps);
+
   async function handle(req, res, pathname, searchParams) {
     const method = req.method;
+    if (await campus.handle(req, res, pathname, searchParams)) return true;
 
     // ===== help requests (students) =====
     if (pathname === '/api/requests') {
