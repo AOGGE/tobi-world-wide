@@ -1031,8 +1031,10 @@ function routeTable() {
 
       if (pathname === '/api/posts' && req.method === 'POST') {
         const student = await requireStudent(req);
-        if (!student || !student.IsAdmin) {
-          sendJson(res, student ? 403 : 401, { error: 'admin_required' });
+        const portalAdmin = student ? null : await getPortalUser(req);
+        const isPortalAdmin = !!portalAdmin && portalAdmin.role === 'admin';
+        if (!isPortalAdmin && (!student || !student.IsAdmin)) {
+          sendJson(res, student || portalAdmin ? 403 : 401, { error: 'admin_required' });
           return;
         }
         const body = await parseBody(req);
@@ -1054,7 +1056,7 @@ function routeTable() {
         const post = await dbWrite(
           'INSERT dbo.NewsArticles (Topic, Headline, Summary, BodyHtml, ReadingMinutes, School, SourceUrl, AuthorId) OUTPUT INSERTED.Id '
           + 'VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-          [topic, headline, summary, article, readingMinutes(article), school, sourceUrl, student.Id]
+          [topic, headline, summary, article, readingMinutes(article), school, sourceUrl, isPortalAdmin ? null : student.Id]
         );
         sendJson(res, 201, { id: post.Id, message: 'published' });
         return;
@@ -1625,8 +1627,9 @@ function routeTable() {
 
       if (req.method === 'DELETE' && pathname.startsWith('/api/posts/')) {
         const student = await getUserFromToken(req);
-        if (!student || !student.IsAdmin) {
-          sendJson(res, student ? 403 : 401, { error: 'admin_required' });
+        const portalAdmin = student ? null : await getPortalUser(req);
+        if (!(portalAdmin && portalAdmin.role === 'admin') && (!student || !student.IsAdmin)) {
+          sendJson(res, student || portalAdmin ? 403 : 401, { error: 'admin_required' });
           return;
         }
         const postId = Number(pathname.slice('/api/posts/'.length));

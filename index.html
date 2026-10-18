@@ -564,6 +564,12 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
       <div class="admin" id="adminPanel">
         <h3>Post news</h3>
         <p>A new post goes live for everyone as soon as you publish it.</p>
+        <div class="admin" style="border-style:solid;margin-bottom:22px;background:var(--soft)">
+          <h3>Quick post from WhatsApp</h3>
+          <p>Copy a post from your WhatsApp channel, paste it here, then tap Publish now. The headline, summary, topic, school and link are picked out for you.</p>
+          <textarea id="qpText" style="min-height:140px" placeholder="Paste the WhatsApp post here"></textarea>
+          <div class="admin-actions"><button class="btn" type="button" id="qpPost">Publish now</button><button class="btn ghost" type="button" id="qpFill">Fill the form so I can edit first</button><span class="msg" id="qpMsg" aria-live="polite"></span></div>
+        </div>
         <form id="postForm" autocomplete="off">
           <div class="form-grid">
             <div class="field full"><label for="fTitle">Headline</label><input id="fTitle" type="text" maxlength="140" placeholder="e.g. UNILORIN releases 2026/2027 admission list"></div>
@@ -2625,6 +2631,59 @@ $('#anForm').addEventListener('submit',async function(e){
   say(m,'Uploading...',true);
   try{var r=await fetch(apiUrl('/api/materials'),{method:'POST',headers:{authorization:'Bearer '+apiToken(),'content-type':f.type||'application/octet-stream','x-title':encodeURIComponent($('#anvTitle').value),'x-subject':encodeURIComponent($('#anvSub').value),'x-filename':encodeURIComponent(f.name)},body:f});
     var j=await r.json().catch(function(){return {}});if(!r.ok)return say(m,j.error||'Upload failed.');$('#anForm').reset();say(m,'Added. Students can see it now.',true);drawCampusAdmin()}catch(x){say(m,'Cannot reach the server.')}
+});
+/* ===== quick post: paste a WhatsApp channel post ===== */
+function parseWaPost(raw){
+  var text=String(raw||'').replace(/\r/g,'').replace(/‎|‏/g,'');
+  var urls=(text.match(/https?:\/\/[^\s)]+/g)||[]).map(function(u){return u.replace(/[.,;!?]+$/,'')});
+  var link=urls.filter(function(u){return !/whatsapp\.com|wa\.me|t\.me\/|chat\.whatsapp/i.test(u)})[0]||'';
+  var skip=/whatsapp\.com|wa\.me\/|^\W*just in\W*$|join (the|our) (group|channel|whatsapp)|follow \W*tobi world wide|for more verified|^\W*tobi (world wide|educational)[^a-z]*(edu|consult)|^forwarded|^\W*share (this|with)|click (the )?link|^\W*read more\W*$/i;
+  var lines=text.split('\n').map(function(l){
+    return l.replace(/^\[\d{1,2}[\/.]\d{1,2}[^\]]*\]\s*[^:]{1,60}:\s*/,'').replace(/(^|[\s(])\*([^*\n]+)\*(?=[\s).,:;!?]|$)/g,'$1$2').replace(/(^|[\s(])_([^_\n]+)_(?=[\s).,:;!?]|$)/g,'$1$2').replace(/(^|[\s(])~([^~\n]+)~(?=[\s).,:;!?]|$)/g,'$1$2').trim()
+  });
+  var kept=[];
+  lines.forEach(function(l){
+    if(!l){if(kept.length&&kept[kept.length-1]!=='')kept.push('');return}
+    if(skip.test(l))return;
+    if(!/[A-Za-z0-9]/.test(l))return;               /* emoji-only or divider lines */
+    kept.push(l.replace(/^[^A-Za-z0-9"'(‘“]+/,'').trim()||l);
+  });
+  while(kept.length&&kept[0]==='')kept.shift();while(kept.length&&kept[kept.length-1]==='')kept.pop();
+  if(!kept.length)return null;
+  var headline=kept[0].replace(/[:\-–]+$/,'').trim(),rest=kept.slice(1);
+  while(rest.length&&rest[0]==='')rest.shift();
+  if(headline.length>140){var cut=headline.slice(0,140),sp=cut.lastIndexOf(' ');headline=(sp>80?cut.slice(0,sp):cut).replace(/[,;:\-]+$/,'')}
+  var body=rest.join('\n').replace(/\n{3,}/g,'\n\n').trim();
+  var para=(body.split(/\n\s*\n/)[0]||body||headline).replace(/\s*\n\s*/g,' ').trim();
+  var summary=para.length>200?(function(){var c=para.slice(0,200),i=Math.max(c.lastIndexOf('. '),c.lastIndexOf('! '),c.lastIndexOf('? '));if(i>80)return c.slice(0,i+1);var s=c.lastIndexOf(' ');return c.slice(0,s>80?s:200).replace(/[,;:\-]+$/,'')+'...'})():para;
+  var all=headline+' '+body,topic='Campus';
+  if(/scholarship|nelfund|bursary|fellowship|\bgrants?\b/i.test(all))topic='Scholarships';
+  else if(/\b(waec|neco|ssce|gce)\b/i.test(all))topic='WAEC';
+  else if(/admission|post-?utme|screening|cut-?off|\badmit/i.test(all))topic='Admissions';
+  else if(/\b(jamb|utme|cbt)\b/i.test(all))topic='JAMB';
+  var found={};
+  (typeof UNIS!=='undefined'?UNIS:[]).forEach(function(u){
+    var name=u[0],ab=u[1];
+    if(all.toLowerCase().indexOf(name.toLowerCase())>=0||(ab&&ab.length>=3&&new RegExp('(^|[^A-Za-z])'+ab.replace(/[-.]/g,'\\$&')+'([^A-Za-z]|$)').test(all)))found[name]=1;
+  });
+  var schools=Object.keys(found);
+  return {headline:headline,summary:summary,body:body||summary,link:link,topic:topic,school:schools.length===1?schools[0]:'',schoolsFound:schools};
+}
+function fillFromWa(){
+  var p=parseWaPost($('#qpText').value),m=$('#qpMsg');
+  if(!p){say(m,'Paste the post from your WhatsApp channel first.');return null}
+  $('#fTitle').value=p.headline;$('#fSummary').value=p.summary;$('#fBody').value=p.body;$('#fLink').value=p.link;
+  $('#fTopic').value=p.topic;$('#fSchool').value=p.school||ALL;
+  say(m,'Detected: topic '+p.topic+', school '+(p.school||'All schools'+(p.schoolsFound.length>1?' (several mentioned)':''))+(p.link?', source link found':'')+'. Check the form below.',true);
+  return p;
+}
+$('#qpFill').addEventListener('click',function(){if(fillFromWa())$('#postForm').scrollIntoView({behavior:'smooth',block:'start'})});
+$('#qpPost').addEventListener('click',function(){
+  if(!fillFromWa())return;
+  if(!$('#fTitle').value.trim()){return}
+  $('#postForm').requestSubmit();
+  var t=setInterval(function(){if(!$('#postBtn').disabled){clearInterval(t);if(!$('#postMsg').textContent){$('#qpText').value='';say($('#qpMsg'),'Published. It is live on the site now.',true)}}},300);
+  setTimeout(function(){clearInterval(t)},15000);
 });
 /* ---- start ---- */
 (async function boot(){
