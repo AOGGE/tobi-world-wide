@@ -1,4 +1,12 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}.aiout{white-space:pre-wrap;background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:14px;font:inherit;font-size:14.5px;line-height:1.55;overflow-wrap:anywhere;margin:10px 0}
+.tips{display:grid;gap:6px;padding-left:20px;margin:8px 0}
+.chip.ver{background:#E6F6EC;color:#136B34;border-color:#B7E3C7}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .chip.ver{background:#12301F;color:#6EE7A8;border-color:#1E5C3A}}
+:root[data-theme="dark"] .chip.ver{background:#12301F;color:#6EE7A8;border-color:#1E5C3A}
+.breath{display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin:8px 0}
+.bcircle{width:110px;height:110px;border-radius:50%;background:var(--soft);border:2px solid var(--brand);display:grid;place-items:center;text-align:center;font-weight:700;font-size:14px;transition:transform 4s ease-in-out}
+.bcircle.in{transform:scale(1.25)}.bcircle.out{transform:scale(.85);transition-duration:6s}
+</style></head><body>
 <title>Tobi World Wide Educational Consult</title>
 <link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#3A2873"><link rel="apple-touch-icon" href="/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -615,6 +623,88 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
 <p id="stuStats" style="margin:8px 0 0;font-size:14px"></p>
 <div id="stuList" style="margin-top:10px;display:grid;gap:8px;max-height:480px;overflow:auto"></div>
 </div>
+    <div class="admin" style="border-style:solid;margin-bottom:20px" id="xPanel" hidden>
+      <h3>Owner tools <span id="xCount" style="font-weight:400;font-size:14px"></span></h3>
+      <p>Statistics, class reps, support contacts, study groups, mentors, reported posts, adverts, payments and messages to students.</p>
+      <div class="ctabs" role="tablist" id="xaTabs">
+        <button class="ctab" type="button" data-tab="stats" aria-selected="true">Statistics</button>
+        <button class="ctab" type="button" data-tab="reps" aria-selected="false">Class reps</button>
+        <button class="ctab" type="button" data-tab="contacts" aria-selected="false">Contacts</button>
+        <button class="ctab" type="button" data-tab="groups" aria-selected="false">Groups</button>
+        <button class="ctab" type="button" data-tab="mentors" aria-selected="false">Mentors</button>
+        <button class="ctab" type="button" data-tab="reports" aria-selected="false">Reported posts</button>
+        <button class="ctab" type="button" data-tab="sponsors" aria-selected="false">Adverts</button>
+        <button class="ctab" type="button" data-tab="pay" aria-selected="false">Payments</button>
+        <button class="ctab" type="button" data-tab="bc" aria-selected="false">Message students</button>
+      </div>
+      <p class="msg" id="xaMsg"></p>
+
+      <div class="cpane" id="xa-stats"><div id="xStats"></div></div>
+
+      <div class="cpane" id="xa-reps" hidden>
+        <form id="xaRepForm" class="form-grid" autocomplete="off">
+          <div class="field"><label for="arEmail">Student email</label><input id="arEmail" type="text" maxlength="120"></div>
+          <div class="field"><label for="arTag">Class name</label><input id="arTag" type="text" maxlength="60" placeholder="e.g. SWK 100L"></div>
+          <div class="field" style="justify-content:flex-end"><button class="btn" type="submit">Make class rep</button></div>
+        </form>
+        <div id="xaReps" style="display:grid;gap:8px;margin-top:10px"></div>
+      </div>
+
+      <div class="cpane" id="xa-contacts" hidden>
+        <form id="xaContactForm" class="form-grid" autocomplete="off">
+          <div class="field"><label for="acType">Type</label><select id="acType"><option value="emergency">Emergency</option><option value="support">Support or counselling</option></select></div>
+          <div class="field"><label for="acName">Name</label><input id="acName" type="text" maxlength="120" placeholder="e.g. Campus security"></div>
+          <div class="field"><label for="acPhone">Phone</label><input id="acPhone" type="text" maxlength="40"></div>
+          <div class="field"><label for="acNote">Note</label><input id="acNote" type="text" maxlength="300"></div>
+          <div class="field"><label for="acUni">School</label><select id="acUni"><option value="">All schools</option></select></div>
+          <div class="field" style="justify-content:flex-end"><button class="btn" type="submit">Add contact</button></div>
+        </form>
+        <div id="xaContacts" style="display:grid;gap:8px;margin-top:10px"></div>
+      </div>
+
+      <div class="cpane" id="xa-groups" hidden><div id="xaGroups" style="display:grid;gap:8px"></div></div>
+      <div class="cpane" id="xa-mentors" hidden><div id="xaMentors" style="display:grid;gap:8px"></div></div>
+      <div class="cpane" id="xa-reports" hidden><div id="xaReports" style="display:grid;gap:8px"></div></div>
+
+      <div class="cpane" id="xa-sponsors" hidden>
+        <form id="xaSponsorForm" class="form-grid" autocomplete="off">
+          <div class="field"><label for="spTitle">Advert title</label><input id="spTitle" type="text" maxlength="120"></div>
+          <div class="field"><label for="spBody">Text</label><input id="spBody" type="text" maxlength="300"></div>
+          <div class="field"><label for="spLink">Link</label><input id="spLink" type="text" placeholder="https://"></div>
+          <div class="field"><label for="spStart">Starts (optional)</label><input id="spStart" type="date"></div>
+          <div class="field"><label for="spEnd">Ends (optional)</label><input id="spEnd" type="date"></div>
+          <div class="field" style="justify-content:flex-end"><button class="btn" type="submit">Add advert</button></div>
+        </form>
+        <div id="xaSponsors" style="display:grid;gap:8px;margin-top:10px"></div>
+      </div>
+
+      <div class="cpane" id="xa-pay" hidden>
+        <p class="note-small" style="text-align:left" id="xaPayNote"></p>
+        <form id="xaProductForm" class="form-grid" autocomplete="off">
+          <div class="field"><label for="apName">Service name</label><input id="apName" type="text" maxlength="120" placeholder="e.g. Admission processing"></div>
+          <div class="field"><label for="apAmt">Price (naira)</label><input id="apAmt" type="number" min="100"></div>
+          <div class="field full"><label for="apDesc">What the student gets</label><input id="apDesc" type="text" maxlength="400"></div>
+          <div class="field" style="justify-content:flex-end"><button class="btn" type="submit">Add service</button></div>
+        </form>
+        <h3>Services</h3><div id="xaProducts" style="display:grid;gap:8px"></div>
+        <h3>Payments</h3><div id="xaPayments" style="display:grid;gap:8px"></div>
+      </div>
+
+      <div class="cpane" id="xa-bc" hidden>
+        <div class="field"><label for="abUni">Send to</label><select id="abUni"><option value="">All students</option></select></div>
+        <form id="xaBcForm" class="form-grid" autocomplete="off" style="margin-top:10px">
+          <div class="field full"><label for="abSub">Subject</label><input id="abSub" type="text" maxlength="160"></div>
+          <div class="field full"><label for="abText">Message</label><textarea id="abText" style="min-height:110px" maxlength="4000"></textarea></div>
+          <div class="field" style="justify-content:flex-end"><button class="btn" type="submit" id="abSend">Send email</button></div>
+        </form>
+        <p class="note-small" style="text-align:left" id="abNote"></p>
+        <h3>WhatsApp list</h3>
+        <p class="note-small" style="text-align:left">WhatsApp does not allow automatic bulk sending. Tap a name to open a chat with the message above already written, or copy all numbers.</p>
+        <div class="admin-actions" style="margin-top:0"><button class="btn ghost sm" type="button" id="abLoad">Load students</button><button class="btn ghost sm" type="button" id="abCopy">Copy all numbers</button></div>
+        <div id="abList" style="display:grid;gap:8px;margin-top:10px"></div>
+        <h3>Sent emails</h3><div id="xaBroadcasts" style="display:grid;gap:8px"></div>
+      </div>
+    </div>
     <div class="admin" style="border-style:solid;margin-bottom:20px" id="campusPanel" hidden>
       <h3>Campus content <span id="cpCount" style="font-weight:400;font-size:14px"></span></h3>
       <p>Post scholarships and jobs, add registration steps, publish scam alerts, and approve what students send in.</p>
@@ -646,7 +736,7 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
           <div class="field"><label for="anvFile">File (up to 5 MB)</label><input id="anvFile" type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.png,.jpg,.jpeg,.txt"></div>
           <div class="field"><button class="btn" type="submit">Upload</button></div>
         </form>
-        <div id="anList" style="display:grid;gap:8px;max-height:420px;overflow:auto"></div>
+        <div id="aNotesList" style="display:grid;gap:8px;max-height:420px;overflow:auto"></div>
       </div>
       <div class="cpane" id="ac-mk" hidden><div id="amList" style="display:grid;gap:8px;max-height:420px;overflow:auto"></div></div>
       <div class="cpane" id="ac-steps" hidden>
@@ -737,7 +827,7 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
     <a class="brand" href="#top"><span class="logo"><img src="data:image/png;base64,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" alt="Oluwatobi Educational Consultant logo"></span><span>Tobi World Wide<small>Educational Consult</small></span></a>
     <nav class="links">
       <a href="#topics">Topics</a><a href="#blog">News</a><a href="#guide">Study guide</a><a href="#about">About</a>
-      <a href="#chat" id="chatNav" hidden>Chat</a><a href="#campus" id="campusNav" hidden>Campus</a><a href="#practice" id="practiceNav" hidden>Practice</a><a href="#help" id="helpNav" hidden>Help</a>
+      <a href="#chat" id="chatNav" hidden>Chat</a><a href="#campus" id="campusNav" hidden>Campus</a><a href="#xtools" id="xtoolsNav" hidden>Tools</a><a href="#practice" id="practiceNav" hidden>Practice</a><a href="#help" id="helpNav" hidden>Help</a>
       <a class="btn" href="#join" style="padding:9px 16px">Join the channel</a>
       <span class="userchip" id="userChip"></span>
       <button class="btn ghost sm" id="logoutBtn" type="button">Log out</button>
@@ -789,7 +879,7 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
         <div class="pick">
           <label for="schoolSel" style="font-weight:700;font-size:14px">Your school</label>
           <input id="schoolSel" type="text" list="schoolList" placeholder="All schools. Type to search" autocomplete="off" style="min-width:min(300px,100%)">
-          <div class="msg" id="stuMsg" aria-live="polite"></div>
+          <div class="msg" id="stuAdminMsg" aria-live="polite"></div>
         </div>
       </div>
 
@@ -851,6 +941,7 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
           <div class="addsub">
             <select id="tSubject" aria-label="Subject"></select>
             <select id="tMode" aria-label="What do you want"><option value="explain">Explain a topic</option><option value="quiz">Quiz me</option><option value="plan">Plan my reading</option></select>
+            <select id="tLang" aria-label="Language"><option value="">English</option><option value="pcm">Pidgin</option><option value="yo">Yoruba</option><option value="ha">Hausa</option><option value="ig">Igbo</option></select>
           </div>
           <div class="tlog" id="tLog" aria-live="polite"></div>
           <form class="addsub" id="tForm" autocomplete="off"><input id="tQ" type="text" maxlength="600" placeholder="Type a topic or a question" aria-label="Your question"><button class="btn" type="submit" id="tBtn">Ask</button></form>
@@ -1052,6 +1143,209 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
         </div>
         <div class="calc-out" id="jOut" aria-live="polite"></div>
         <p class="note-small" style="text-align:left">Cut-off marks change every year and differ by course, so always take yours from the school's official admission notice or the JAMB portal. This tool only does the arithmetic.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="xtools" style="padding-top:8px" hidden>
+    <div class="wrap">
+      <div class="sec-head reveal"><h2>Student tools</h2><p>Class notices, assignments, a study plan, grade goals, budget, wellbeing, groups, mentors, CV help and more.</p></div>
+      <div id="sponsorBox2"></div>
+      <div class="calc reveal">
+        <div class="ctabs" role="tablist" id="tTabs">
+          <button class="ctab" type="button" data-tab="class" aria-selected="true">Class notices</button>
+          <button class="ctab" type="button" data-tab="tasks" aria-selected="false">Tasks and this week</button>
+          <button class="ctab" type="button" data-tab="plan" aria-selected="false">Study planner</button>
+          <button class="ctab" type="button" data-tab="cgpa" aria-selected="false">CGPA goal</button>
+          <button class="ctab" type="button" data-tab="budget" aria-selected="false">Budget</button>
+          <button class="ctab" type="button" data-tab="well" aria-selected="false">Wellbeing</button>
+          <button class="ctab" type="button" data-tab="groups" aria-selected="false">Study groups</button>
+          <button class="ctab" type="button" data-tab="mentors" aria-selected="false">Mentors</button>
+          <button class="ctab" type="button" data-tab="cv" aria-selected="false">CV and letter</button>
+          <button class="ctab" type="button" data-tab="essay" aria-selected="false">Essay helper</button>
+          <button class="ctab" type="button" data-tab="links" aria-selected="false">Official links</button>
+          <button class="ctab" type="button" data-tab="sos" aria-selected="false">Emergency</button>
+          <button class="ctab" type="button" data-tab="refer" aria-selected="false">Invite friends</button>
+          <button class="ctab" type="button" data-tab="pay" aria-selected="false">Pay for a service</button>
+        </div>
+
+        <div class="cpane" id="tp-class">
+          <h3>My class</h3>
+          <form id="xClassForm" class="form-grid" autocomplete="off">
+            <div class="field"><label for="xClass">Class name (same as your class rep uses)</label><input id="xClass" type="text" maxlength="60" placeholder="e.g. SWK 100L"></div>
+            <div class="field" style="justify-content:flex-end"><button class="btn" type="submit">Save class</button></div>
+          </form>
+          <p class="msg" id="xClassMsg"></p>
+          <h3>Notices from your class rep</h3>
+          <div id="xNotices" style="display:grid;gap:8px"></div>
+          <div id="xRepBox" hidden>
+            <h3>Post a notice (class reps only)</h3>
+            <form id="xNoticeForm" class="form-grid" autocomplete="off">
+              <div class="field"><label for="xnKind">Type</label><select id="xnKind"><option value="notice">Notice</option><option value="test">Test</option><option value="assignment">Assignment</option><option value="cancel">Class cancelled</option><option value="event">Event</option></select></div>
+              <div class="field"><label for="xnTitle">Title</label><input id="xnTitle" type="text" maxlength="160"></div>
+              <div class="field"><label for="xnDue">Date (optional)</label><input id="xnDue" type="date"></div>
+              <div class="field full"><label for="xnBody">Details</label><textarea id="xnBody" style="min-height:80px" maxlength="1500"></textarea></div>
+              <div class="field" style="justify-content:flex-end"><button class="btn" type="submit">Post notice</button></div>
+            </form>
+            <p class="msg" id="xnMsg"></p>
+          </div>
+        </div>
+
+        <div class="cpane" id="tp-tasks" hidden>
+          <h3>This week</h3>
+          <div id="xWeek" style="display:grid;gap:8px"></div>
+          <h3>Add an assignment, test or project</h3>
+          <form id="xTaskForm" class="form-grid" autocomplete="off">
+            <div class="field"><label for="xtTitle">What is it?</label><input id="xtTitle" type="text" maxlength="160" placeholder="e.g. Group assignment"></div>
+            <div class="field"><label for="xtCourse">Course</label><input id="xtCourse" type="text" maxlength="80" placeholder="e.g. SWK 101"></div>
+            <div class="field"><label for="xtKind">Type</label><select id="xtKind"><option value="assignment">Assignment</option><option value="test">Test</option><option value="project">Project</option><option value="other">Other</option></select></div>
+            <div class="field"><label for="xtDue">Due date</label><input id="xtDue" type="date"></div>
+            <div class="field" style="justify-content:flex-end"><button class="btn" type="submit">Save</button></div>
+          </form>
+          <p class="msg" id="xtMsg"></p>
+          <div id="xTasks" style="display:grid;gap:8px"></div>
+        </div>
+
+        <div class="cpane" id="tp-plan" hidden>
+          <h3>AI study planner</h3>
+          <p class="note-small" style="text-align:left">It uses your saved exams and tasks (add exams under Campus, Timetable and exams). Always confirm real dates with your department.</p>
+          <form id="xPlanForm" class="form-grid" autocomplete="off">
+            <div class="field"><label for="xpHours">Study hours per day</label><input id="xpHours" type="number" min="1" max="12" value="3"></div>
+            <div class="field"><label for="xpWeak">Courses you find hard</label><input id="xpWeak" type="text" maxlength="300" placeholder="e.g. GST 101, SWK 103"></div>
+            <div class="field" style="justify-content:flex-end"><button class="btn" type="submit" id="xpBtn">Make my plan</button></div>
+          </form>
+          <p class="msg" id="xpMsg"></p>
+          <div id="xPlanOut" hidden><pre class="aiout" id="xPlanText"></pre><button class="btn ghost sm" type="button" data-copy="xPlanText">Copy plan</button></div>
+        </div>
+
+        <div class="cpane" id="tp-cgpa" hidden>
+          <h3>CGPA goal planner (5.0 scale)</h3>
+          <form id="xCgForm" class="form-grid" autocomplete="off">
+            <div class="field"><label for="cgNow">Current CGPA</label><input id="cgNow" type="number" step="0.01" min="0" max="5" placeholder="e.g. 3.80"></div>
+            <div class="field"><label for="cgUnits">Units finished so far</label><input id="cgUnits" type="number" min="0" max="400" placeholder="e.g. 48"></div>
+            <div class="field"><label for="cgNext">Units you will take next</label><input id="cgNext" type="number" min="1" max="60" placeholder="e.g. 24"></div>
+            <div class="field"><label for="cgGoal">Target CGPA</label><input id="cgGoal" type="number" step="0.01" min="0" max="5" placeholder="e.g. 4.20"></div>
+            <div class="field" style="justify-content:flex-end"><button class="btn" type="submit">Work it out</button></div>
+          </form>
+          <div id="xCgOut" class="cwarn" hidden></div>
+          <p class="note-small" style="text-align:left">Grade points: A = 5, B = 4, C = 3, D = 2, E = 1, F = 0. Your school may use slightly different rules, so confirm with your department.</p>
+        </div>
+
+        <div class="cpane" id="tp-budget" hidden>
+          <h3>Money tracker</h3>
+          <div id="xBudSum" class="cwarn"></div>
+          <form id="xBudForm" class="form-grid" autocomplete="off">
+            <div class="field"><label for="xbKind">Type</label><select id="xbKind"><option value="out">Spent</option><option value="in">Received</option></select></div>
+            <div class="field"><label for="xbAmt">Amount (naira)</label><input id="xbAmt" type="number" min="1" inputmode="numeric"></div>
+            <div class="field"><label for="xbLabel">What for?</label><input id="xbLabel" type="text" maxlength="80" placeholder="e.g. Transport, food, data"></div>
+            <div class="field" style="justify-content:flex-end"><button class="btn" type="submit">Add</button></div>
+          </form>
+          <p class="msg" id="xbMsg"></p>
+          <div id="xBudList" style="display:grid;gap:8px"></div>
+        </div>
+
+        <div class="cpane" id="tp-well" hidden>
+          <h3>How are you feeling today?</h3>
+          <div class="admin-actions" style="margin-top:0" id="xMood">
+            <button class="btn ghost" type="button" data-mood="good">😊 Good</button>
+            <button class="btn ghost" type="button" data-mood="ok">😐 Okay</button>
+            <button class="btn ghost" type="button" data-mood="stress">😟 Stressed</button>
+            <button class="btn ghost" type="button" data-mood="low">😞 Low</button>
+          </div>
+          <div id="xMoodOut" class="cwarn" hidden></div>
+          <h3>One-minute breathing</h3>
+          <div class="breath"><div class="bcircle" id="xBreathC">Ready</div><button class="btn" type="button" id="xBreathBtn">Start breathing</button></div>
+          <h3>Exam stress tips</h3>
+          <ul class="tips"><li>Study in short blocks: 25 minutes, then a 5 minute break. Stand up and drink water.</li><li>Sleep matters more than one more late night. Try to sleep before midnight in exam week.</li><li>Do past questions. They show you how lecturers ask.</li><li>Eat something before an exam, and reach the hall early so you are calm.</li><li>If a question blocks you, skip it and come back. Do not let one question steal your time.</li><li>Talk to a friend, a course mate or someone you trust. Carrying stress alone makes it heavier.</li></ul>
+          <div class="cwarn"><b>You are not alone.</b> This corner gives general tips only and is not medical advice. If you feel unsafe, hopeless or want to harm yourself, tell someone you trust right now and go to your school counselling unit or health centre. Open the Emergency tab for numbers.</div>
+        </div>
+
+        <div class="cpane" id="tp-groups" hidden>
+          <h3>Study groups</h3>
+          <div class="cgrid" id="xGroups"></div>
+          <details style="margin-top:6px"><summary style="cursor:pointer;font-weight:700">Start or suggest a group</summary>
+            <form id="xGroupForm" class="form-grid" style="margin-top:12px" autocomplete="off">
+              <div class="field"><label for="xgCourse">Course</label><input id="xgCourse" type="text" maxlength="80" placeholder="e.g. SWK 101"></div>
+              <div class="field"><label for="xgTitle">Group name</label><input id="xgTitle" type="text" maxlength="160"></div>
+              <div class="field full"><label for="xgLink">WhatsApp group invite link</label><input id="xgLink" type="text" placeholder="https://chat.whatsapp.com/..."></div>
+              <div class="field full"><label for="xgDet">About the group (optional)</label><input id="xgDet" type="text" maxlength="400"></div>
+              <div class="field" style="justify-content:flex-end"><button class="btn" type="submit">Send for approval</button></div>
+            </form>
+            <p class="msg" id="xgMsg"></p>
+          </details>
+        </div>
+
+        <div class="cpane" id="tp-mentors" hidden>
+          <h3>Mentors</h3>
+          <p class="note-small" style="text-align:left">Senior students who agreed to guide new students. Be respectful and never send money to a mentor.</p>
+          <div class="cgrid" id="xMentors"></div>
+          <details style="margin-top:6px"><summary style="cursor:pointer;font-weight:700">Become a mentor</summary>
+            <form id="xMentorForm" class="form-grid" style="margin-top:12px" autocomplete="off">
+              <div class="field"><label for="xmLevel">Your level</label><input id="xmLevel" type="text" maxlength="40" placeholder="e.g. 300L"></div>
+              <div class="field"><label for="xmProg">Course of study</label><input id="xmProg" type="text" maxlength="120"></div>
+              <div class="field"><label for="xmPhone">WhatsApp number</label><input id="xmPhone" type="tel" maxlength="30" placeholder="08012345678"></div>
+              <div class="field full"><label for="xmBio">How can you help?</label><textarea id="xmBio" style="min-height:80px" maxlength="500"></textarea></div>
+              <div class="field" style="justify-content:flex-end"><button class="btn" type="submit">Apply</button></div>
+            </form>
+            <p class="msg" id="xmMsg"></p>
+          </details>
+        </div>
+
+        <div class="cpane" id="tp-cv" hidden>
+          <h3>CV and cover letter</h3>
+          <p class="note-small" style="text-align:left">Fill what you can. The AI tidies the wording but only uses what you write. Check every detail before you send it.</p>
+          <form id="xCvForm" class="form-grid" autocomplete="off">
+            <div class="field"><label for="cvName">Full name</label><input id="cvName" type="text" maxlength="120"></div>
+            <div class="field"><label for="cvEmail">Email</label><input id="cvEmail" type="text" maxlength="120"></div>
+            <div class="field"><label for="cvPhone">Phone</label><input id="cvPhone" type="text" maxlength="40"></div>
+            <div class="field"><label for="cvTarget">Applying for (optional)</label><input id="cvTarget" type="text" maxlength="200" placeholder="e.g. SIWES at a hospital"></div>
+            <div class="field full"><label for="cvEdu">Education</label><textarea id="cvEdu" style="min-height:70px" maxlength="900" placeholder="School, course, level, years, results"></textarea></div>
+            <div class="field full"><label for="cvSkills">Skills</label><textarea id="cvSkills" style="min-height:60px" maxlength="900"></textarea></div>
+            <div class="field full"><label for="cvExp">Experience, leadership and activities</label><textarea id="cvExp" style="min-height:80px" maxlength="900" placeholder="e.g. Class rep, volunteer, part-time work"></textarea></div>
+            <div class="field full"><label for="cvObj">About you (optional)</label><textarea id="cvObj" style="min-height:60px" maxlength="900"></textarea></div>
+            <div class="field" style="justify-content:flex-end"><button class="btn" type="submit" id="cvBtn">Make my CV</button><button class="btn ghost" type="button" id="cvCover">Make cover letter</button></div>
+          </form>
+          <p class="msg" id="cvMsg"></p>
+          <div id="cvOut" hidden><pre class="aiout" id="cvText"></pre><div class="admin-actions" style="margin-top:8px"><button class="btn ghost sm" type="button" data-copy="cvText">Copy</button><button class="btn ghost sm" type="button" id="cvPrint">Print or save as PDF</button></div></div>
+        </div>
+
+        <div class="cpane" id="tp-essay" hidden>
+          <h3>Scholarship essay helper</h3>
+          <form id="xEssayForm" class="form-grid" autocomplete="off">
+            <div class="field full"><label for="esPrompt">The essay question or scholarship (optional)</label><input id="esPrompt" type="text" maxlength="400"></div>
+            <div class="field full"><label for="esText">Paste your essay</label><textarea id="esText" style="min-height:180px" maxlength="6000"></textarea></div>
+            <div class="field" style="justify-content:flex-end"><button class="btn" type="submit" id="esBtn">Review my essay</button></div>
+          </form>
+          <p class="msg" id="esMsg"></p>
+          <div id="esOut" hidden><pre class="aiout" id="esFeed"></pre><button class="btn ghost sm" type="button" data-copy="esFeed">Copy feedback</button></div>
+        </div>
+
+        <div class="cpane" id="tp-links" hidden>
+          <h3>Official links</h3>
+          <p class="note-small" style="text-align:left">Always use the official website of the organisation. Never give your login details to an agent.</p>
+          <div class="cgrid" id="xLinks"></div>
+        </div>
+
+        <div class="cpane" id="tp-sos" hidden>
+          <h3>Emergency and support contacts</h3>
+          <div class="cwarn"><b>National emergency number: 112.</b> Call it from any phone if someone is in danger.</div>
+          <div class="cgrid" id="xContacts"></div>
+        </div>
+
+        <div class="cpane" id="tp-refer" hidden>
+          <h3>Invite your friends</h3>
+          <p>Share your link. When a friend signs up with it, they are counted as your referral.</p>
+          <div class="ccard"><b id="xRefLink"></b><small id="xRefCount"></small><div class="row2"><button class="btn sm" type="button" id="xRefCopy">Copy link</button><a class="btn wa sm" id="xRefWa" target="_blank" rel="noopener" href="#">Share on WhatsApp</a></div></div>
+        </div>
+
+        <div class="cpane" id="tp-pay" hidden>
+          <h3>Pay for a service</h3>
+          <p class="note-small" style="text-align:left" id="xPayNote"></p>
+          <div class="cgrid" id="xProducts"></div>
+          <h3>My payments</h3>
+          <div id="xPayments" style="display:grid;gap:8px"></div>
+          <p class="msg" id="xPayMsg"></p>
+        </div>
       </div>
     </div>
   </section>
@@ -1808,7 +2102,7 @@ $('#tForm').addEventListener('submit',async function(e){
   var hist=TLOG.slice(-6);
   TLOG.push({role:'user',text:q});TLOG.push({role:'assistant',text:'Thinking...'});drawLog();
   $('#tQ').value='';$('#tBtn').disabled=true;
-  var r=await Store.tutor({subject:sub,mode:$('#tMode').value,question:q,history:hist});
+  var r=await Store.tutor({subject:sub,mode:$('#tMode').value,lang:$('#tLang').value,question:q,history:hist});
   $('#tBtn').disabled=false;
   TLOG.pop();
   TLOG.push({role:'assistant',text:r.error?r.error:r.text});drawLog();
@@ -2031,7 +2325,7 @@ var ApiStore={mode:'api',
     var current=student&&!student.error?student:(isPortal?portal:null);
     var user=current?{id:current.id||0,name:current.name,email:current.email,school:current.school||'Admin',matric:current.matric||'',programme:current.programme||'',subjects:current.subjects||[],aiOutline:current.aiOutline||''}:null;
     ApiStore._d={posts:posts,schools:schools};return {user:user,admin:isPortal||!!(student&&!student.error&&student.admin),extras:Array.isArray(schools)?schools.map(function(x){return x.Name||x.name}).filter(Boolean):[],tutor:!!(student&&!student.error&&student.tutor),role:isPortal?'admin':null}},
-  async register(a){var universityId=await findUniversityId(a.school);if(!universityId)return {error:'Select a university from the official list.'};return call('POST','/api/auth/register',{name:a.name,email:a.email,password:a.password,universityId:universityId,matric:a.matric||'',programme:a.programme||'',phone:a.phone||''})},
+  async register(a){var universityId=await findUniversityId(a.school);if(!universityId)return {error:'Select a university from the official list.'};return call('POST','/api/auth/register',{name:a.name,email:a.email,password:a.password,universityId:universityId,matric:a.matric||'',programme:a.programme||'',phone:a.phone||'',ref:(function(){try{return localStorage.getItem('tww_ref')||''}catch(e){return ''}})()})},
   async login(a){var j=await call('POST','/api/auth/login',a);if(j.token)saveApiToken(j.token,'student',a.keep!==false);return j},
   async logout(){var role='';try{role=localStorage.getItem('tww_api_role')||''}catch(e){}var result=await call('POST',role==='admin'?'/api/portal/logout':'/api/auth/logout');clearApiToken();return result},
   async setSchool(s){var universityId=await findUniversityId(s);if(!universityId)return {error:'Select a university from the official list.'};return call('POST','/api/me/university',{universityId:universityId})},
@@ -2071,10 +2365,10 @@ function drawStudentStats(){
 }
 async function drawStudents(){
   if(Store.mode!=='api'){$('#stuPanel').hidden=true;return}
-  $('#stuPanel').hidden=false;$('#stuMsg').textContent='Loading students...';
+  $('#stuPanel').hidden=false;$('#stuAdminMsg').textContent='Loading students...';
   var j=await call('GET','/api/admin/students');
-  if(!Array.isArray(j)){$('#stuMsg').textContent='Could not load students: '+((j&&j.error)||'unknown error')+'. Log out and log in again as admin, then press Refresh.';return}
-  STUDENTS=j;$('#stuMsg').textContent=j.length?'':'No students have registered yet.';drawStudentList();
+  if(!Array.isArray(j)){$('#stuAdminMsg').textContent='Could not load students: '+((j&&j.error)||'unknown error')+'. Log out and log in again as admin, then press Refresh.';return}
+  STUDENTS=j;$('#stuAdminMsg').textContent=j.length?'':'No students have registered yet.';drawStudentList();
 }
 function studentsCsv(){
   var cell=function(v){v=String(v==null?'':v);if(/^[=+\-@]/.test(v))v="'"+v;return '"'+v.replace(/"/g,'""')+'"'};
@@ -2086,7 +2380,7 @@ $('#stuSearch').addEventListener('input',drawStudentList);
 $('#stuList').addEventListener('click',async function(e){
   var b=e.target.closest('button[data-act]');if(!b)return;
   var id=b.dataset.id,a=b.dataset.act,s=STUDENTS.filter(function(x){return String(x.id)===String(id)})[0];if(!s)return;
-  var m=$('#stuMsg');
+  var m=$('#stuAdminMsg');
   if(a==='st-reset'){
     if(!b.dataset.sure){b.dataset.sure='1';b.textContent='Click again to reset';return}
     var r=await call('POST','/api/admin/students/'+id+'/reset-password');
@@ -2109,7 +2403,7 @@ $('#stuList').addEventListener('click',async function(e){
 $('#stuCsv').addEventListener('click',studentsCsv);
 $('#stuRefresh').addEventListener('click',drawStudents);
 async function drawStaff(){
-  drawStudents();drawRequests();drawAnnAdmin();drawCbtAdmin();drawCampusAdmin();
+  drawStudents();drawRequests();drawAnnAdmin();drawCbtAdmin();drawCampusAdmin();drawXAdmin();
   var j=await call('GET','/api/admin/staff');if(j.error)return;$('#staffPanel').hidden=false;
   $('#aiInfo').textContent=j.ai?'AI search verifies that sources open and match each headline. Official allowlisted sources may auto-publish; other stories wait for review. Students registered: '+j.students+'.':'AI is OFF. Add GEMINI_API_KEY on the server to enable verified news search.';
   $('#autoPub').checked=!!j.settings.autoPublish;
@@ -2182,7 +2476,7 @@ function apiOn(){return Store.mode==='api'}
 async function loadExtras(){
   var on=apiOn()&&!APP.admin;
   ['#help','#practice','#helpNav','#practiceNav'].forEach(function(s){var el=$(s);if(el)el.hidden=!on});
-  loadCampus();
+  loadCampus();loadTools();
   if(!on){$('#annBar').hidden=true;return}
   loadAnnouncements();loadMyRequests();loadCbtSubjects();
 }
@@ -2609,7 +2903,7 @@ async function drawCampusAdmin(){
   $('#cpCount').textContent=pend?'('+pend+' waiting for approval)':'';
   var pill=function(s){return s==='pending'?' <span class="pill new">Pending</span>':''};
   $('#aoList').innerHTML=j.opportunities.map(function(o){return row(esc(o.title)+pill(o.status),esc(o.kind)+(o.org?' · '+esc(o.org):'')+(o.deadline?' · '+esc(o.deadline):'')+(o.link?' · <a href="'+esc(o.link)+'" target="_blank" rel="noopener noreferrer">link</a>':''),(o.status==='pending'?bt('ca-ok-opportunities',o.id,'Approve'):'')+bt('ca-del-opportunities',o.id,'Delete','danger'))}).join('')||'<p class="note-small" style="text-align:left">Nothing yet.</p>';
-  $('#anList').innerHTML=j.materials.map(function(o){return row(esc(o.title)+pill(o.status),esc(o.subject)+' · '+esc(o.name)+' · '+fmtSize(o.size)+' · by '+esc(o.by),(o.status==='pending'?bt('ca-ok-materials',o.id,'Approve'):'')+bt('ca-del-materials',o.id,'Delete','danger'))}).join('')||'<p class="note-small" style="text-align:left">No files yet.</p>';
+  $('#aNotesList').innerHTML=j.materials.map(function(o){return row(esc(o.title)+pill(o.status),esc(o.subject)+' · '+esc(o.name)+' · '+fmtSize(o.size)+' · by '+esc(o.by),(o.status==='pending'?bt('ca-ok-materials',o.id,'Approve'):'')+bt('ca-del-materials',o.id,'Delete','danger'))}).join('')||'<p class="note-small" style="text-align:left">No files yet.</p>';
   $('#amList').innerHTML=j.listings.map(function(o){return row(esc(o.title)+pill(o.status),esc(o.kind)+(o.price?' · '+esc(o.price):'')+' · '+esc(o.school)+' · by '+esc(o.by)+(o.details?'<br>'+esc(o.details):''),(o.status==='pending'?bt('ca-ok-listings',o.id,'Approve'):'')+bt('ca-del-listings',o.id,'Delete','danger'))}).join('')||'<p class="note-small" style="text-align:left">No posts yet.</p>';
   $('#asList').innerHTML=j.steps.map(function(o){return row(esc(o.title),esc(o.school),bt('ca-del-checklist',o.id,'Delete','danger'))}).join('');
   $('#acList').innerHTML=j.scams.map(function(o){return row(esc(o.title),esc(o.details),bt('ca-del-scam-alerts',o.id,'Delete','danger'))}).join('')||'<p class="note-small" style="text-align:left">No alerts yet.</p>';
@@ -2685,6 +2979,234 @@ $('#qpPost').addEventListener('click',function(){
   var t=setInterval(function(){if(!$('#postBtn').disabled){clearInterval(t);if(!$('#postMsg').textContent){$('#qpText').value='';say($('#qpMsg'),'Published. It is live on the site now.',true)}}},300);
   setTimeout(function(){clearInterval(t)},15000);
 });
+/* ===================== student tools (batch A/B/C) ===================== */
+try{var _rf=new URLSearchParams(location.search).get('ref');if(_rf)localStorage.setItem('tww_ref',_rf.replace(/[^A-Za-z0-9]/g,'').slice(0,12))}catch(e){}
+var X={tasks:[],loaded:{}};
+var LANGS={pcm:'Pidgin',yo:'Yoruba',ha:'Hausa',ig:'Igbo'};
+var OFFICIAL_LINKS=[
+  ['JAMB','Main website for news, notices and registration updates.','https://www.jamb.gov.ng'],
+  ['JAMB e-Facility','Check results, print slips, and log in to CAPS to accept or reject admission.','https://efacility.jamb.gov.ng'],
+  ['NELFUND','Federal student loan portal.','https://nelfund.gov.ng'],
+  ['WAEC','Exam body notices and school results.','https://www.waecnigeria.org'],
+  ['WAEC result checker','Check your WAEC result with your scratch card.','https://www.waecdirect.org'],
+  ['NECO','NECO notices and results.','https://neco.gov.ng'],
+  ['NUC','Approved universities and programmes in Nigeria.','https://nuc.edu.ng'],
+  ['UNILORIN','University of Ilorin official website.','https://www.unilorin.edu.ng'],
+  ['UNILORIN portal','Student portal of the University of Ilorin.','https://portal.unilorin.edu.ng']
+];
+function naira(n){return '₦'+Number(n||0).toLocaleString('en-NG')}
+function xOn(){return apiOn()&&!APP.admin}
+function xCopy(id,btn){var t=$('#'+id).textContent;try{navigator.clipboard.writeText(t);if(btn){var o=btn.textContent;btn.textContent='Copied';setTimeout(function(){btn.textContent=o},1500)}}catch(e){toast('Select the text and copy it.')}}
+document.addEventListener('click',function(e){var b=e.target.closest('[data-copy]');if(b)xCopy(b.dataset.copy,b)});
+
+async function loadTools(){
+  var on=xOn();$('#xtools').hidden=!on;$('#xtoolsNav').hidden=!on;if(!on)return;
+  loadSponsors();xTab('class');
+  try{var q=new URLSearchParams(location.search).get('paid');if(q){history.replaceState(null,'',location.pathname);var v=await call('GET','/api/x/pay/verify?ref='+encodeURIComponent(q));toast(v&&v.status==='paid'?'Payment received. Thank you!':'We have not received that payment yet. If you paid, wait a minute and open Pay for a service.')}}catch(e){}
+}
+$('#tTabs').addEventListener('click',function(e){var b=e.target.closest('.ctab');if(!b)return;xTab(b.dataset.tab)});
+function xTab(t){
+  showTab('#tTabs','tp-',t);
+  var m={class:xLoadClass,tasks:xLoadTasks,plan:xLoadPlan,budget:xLoadBudget,groups:xLoadGroups,mentors:xLoadMentors,links:xLoadLinks,sos:xLoadSos,refer:xLoadRefer,pay:xLoadPay,cv:xFillCv};
+  if(m[t])m[t]();
+}
+
+/* sponsors */
+async function loadSponsors(){
+  var l=await call('GET','/api/x/sponsors');var html='';
+  if(Array.isArray(l)&&l.length){var s=l[0];html='<div class="ccard" style="margin-bottom:14px"><span class="pill">Sponsored</span><b>'+esc(s.title)+'</b>'+(s.body?'<p>'+esc(s.body)+'</p>':'')+(s.link?'<div class="row2"><a class="btn sm" target="_blank" rel="noopener sponsored" href="'+esc(s.link)+'" data-sp="'+s.id+'">Learn more</a></div>':'')+'</div>'}
+  var a=$('#sponsorBox2');if(a)a.innerHTML=html;
+  var n=$('#sponsorBox');if(!n){var fs=$('#featureSlot');if(fs){n=document.createElement('div');n.id='sponsorBox';fs.parentNode.insertBefore(n,fs)}}
+  if(n)n.innerHTML=html;
+}
+document.addEventListener('click',function(e){var a=e.target.closest('[data-sp]');if(a)netCall('POST','/api/x/sponsors/'+a.dataset.sp+'/click')});
+
+/* class notices */
+var KIND_NOTICE={notice:'Notice',test:'Test',assignment:'Assignment',cancel:'Class cancelled',event:'Event'};
+async function xLoadClass(){
+  var me=await call('GET','/api/x/me');if(!me||me.error)return;X.me=me;$('#xClass').value=me.classTag||'';$('#xRepBox').hidden=!me.isRep;
+  var l=await call('GET','/api/x/notices');
+  $('#xNotices').innerHTML=!me.classTag?'<p class="note-small" style="text-align:left">Type your class name above (for example SWK 100L) and save it to see your class rep notices.</p>':(Array.isArray(l)&&l.length?l.map(function(n){var d=n.due?daysLeft(n.due):null;return '<div class="ccard"><span class="pill">'+esc(KIND_NOTICE[n.kind]||n.kind)+'</span><b>'+esc(n.title)+'</b>'+(n.due?'<small>'+esc(fmtDate(n.due))+' '+(d!==null&&d>=0?dueChip(d):'')+'</small>':'')+(n.body?'<p style="white-space:pre-wrap">'+esc(n.body)+'</p>':'')+'<small>Posted by '+esc(n.by)+'</small>'+(n.mine?'<div class="row2"><button type="button" class="btn danger sm" data-xn="'+n.id+'">Delete</button></div>':'')+'</div>'}).join(''):'<p class="note-small" style="text-align:left">No notices for your class yet.</p>');
+}
+$('#xClassForm').addEventListener('submit',async function(e){e.preventDefault();var r=await call('PUT','/api/x/me',{classTag:$('#xClass').value});if(r.error)return say($('#xClassMsg'),r.error);say($('#xClassMsg'),'Saved.',true);xLoadClass()});
+$('#xNoticeForm').addEventListener('submit',async function(e){e.preventDefault();var r=await call('POST','/api/x/notices',{kind:$('#xnKind').value,title:$('#xnTitle').value,due:$('#xnDue').value,body:$('#xnBody').value});if(r.error)return say($('#xnMsg'),r.error);$('#xNoticeForm').reset();say($('#xnMsg'),'Posted.',true);xLoadClass()});
+$('#xNotices').addEventListener('click',async function(e){var b=e.target.closest('[data-xn]');if(!b)return;await call('DELETE','/api/x/notices/'+b.dataset.xn);xLoadClass()});
+
+/* tasks + this week */
+var TASK_KIND={assignment:'Assignment',test:'Test',project:'Project',other:'Other'};
+async function xLoadTasks(){
+  var res=await Promise.all([call('GET','/api/x/tasks'),call('GET','/api/deadlines'),call('GET','/api/schedule'),call('GET','/api/x/notices')]);
+  var tasks=Array.isArray(res[0])?res[0]:[];X.tasks=tasks;
+  $('#xTasks').innerHTML=tasks.length?tasks.map(function(t){var d=t.due?daysLeft(t.due):null;return row((t.done?'<s>':'')+esc(t.title)+(t.done?'</s>':'')+' '+(t.done||d===null?'':dueChip(d)),esc(TASK_KIND[t.kind]||t.kind)+(t.course?' · '+esc(t.course):'')+(t.due?' · '+esc(fmtDate(t.due)):''),bt('xt-done',t.id,t.done?'Undo':'Done')+bt('xt-del',t.id,'Delete','danger'))}).join(''):'<p class="note-small" style="text-align:left">Nothing saved yet.</p>';
+  var items=[];
+  tasks.forEach(function(t){if(!t.done&&t.due)items.push({d:t.due,t:t.title,s:(TASK_KIND[t.kind]||'Task')+(t.course?' · '+t.course:'')})});
+  (Array.isArray(res[1])?res[1]:[]).forEach(function(x){if(!x.done&&x.due)items.push({d:x.due,t:x.title,s:'Deadline · '+x.kind})});
+  (Array.isArray(res[2])?res[2]:[]).forEach(function(x){if(x.kind==='exam'&&x.date)items.push({d:x.date,t:x.title,s:'Exam'+(x.time?' · '+x.time:'')})});
+  (Array.isArray(res[3])?res[3]:[]).forEach(function(x){if(x.due)items.push({d:x.due,t:x.title,s:(KIND_NOTICE[x.kind]||'Notice')+' from class rep'})});
+  items=items.filter(function(i){var d=daysLeft(i.d);return d!==null&&d>=-1&&d<=7}).sort(function(a,b){return a.d<b.d?-1:a.d>b.d?1:0});
+  $('#xWeek').innerHTML=items.length?items.map(function(i){return row(esc(i.t)+' '+dueChip(daysLeft(i.d)),esc(fmtDate(i.d))+' · '+esc(i.s),'')}).join(''):'<p class="note-small" style="text-align:left">Nothing due in the next 7 days. Good job.</p>';
+}
+$('#xTaskForm').addEventListener('submit',async function(e){e.preventDefault();var r=await call('POST','/api/x/tasks',{title:$('#xtTitle').value,course:$('#xtCourse').value,kind:$('#xtKind').value,due:$('#xtDue').value});if(r.error)return say($('#xtMsg'),r.error);$('#xtTitle').value='';say($('#xtMsg'),'Saved.',true);xLoadTasks()});
+$('#xTasks').addEventListener('click',async function(e){var b=e.target.closest('button[data-act]');if(!b)return;if(b.dataset.act==='xt-del')await call('DELETE','/api/x/tasks/'+b.dataset.id);else await call('POST','/api/x/tasks/'+b.dataset.id,{});xLoadTasks()});
+
+/* planner */
+async function xLoadPlan(){var r=await call('GET','/api/x/planner');if(r&&r.text){$('#xPlanText').textContent=r.text;$('#xPlanOut').hidden=false}}
+$('#xPlanForm').addEventListener('submit',async function(e){e.preventDefault();var b=$('#xpBtn');b.disabled=true;say($('#xpMsg'),'Making your plan. This can take up to a minute...',true);
+  var r=await call('POST','/api/x/planner',{hours:$('#xpHours').value,weak:$('#xpWeak').value});b.disabled=false;
+  if(r.error)return say($('#xpMsg'),r.error);say($('#xpMsg'),'Your plan is ready.',true);$('#xPlanText').textContent=r.text;$('#xPlanOut').hidden=false});
+
+/* CGPA goal */
+$('#xCgForm').addEventListener('submit',function(e){
+  e.preventDefault();var now=parseFloat($('#cgNow').value),u=parseFloat($('#cgUnits').value)||0,nx=parseFloat($('#cgNext').value),g=parseFloat($('#cgGoal').value),o=$('#xCgOut');o.hidden=false;
+  if(isNaN(now)||isNaN(nx)||isNaN(g)||nx<=0){o.textContent='Fill your current CGPA, the units you will take and your target.';return}
+  var need=(g*(u+nx)-now*u)/nx,max=(now*u+5*nx)/(u+nx),min=(now*u)/(u+nx);
+  var msg;
+  if(need>5)msg='Your target of '+g.toFixed(2)+' is not possible in one semester of '+nx+' units. Even straight A\'s (5.00) would give a CGPA of '+max.toFixed(2)+'. Spread the goal over two or more semesters.';
+  else if(need<=0)msg='You are already safe. Even if you scored 0 next semester, your CGPA would stay around '+min.toFixed(2)+', which is above '+g.toFixed(2)+'. Still aim high.';
+  else{var hint=need>=4.5?'That means mostly A\'s.':need>=4?'That means a strong mix of A\'s and B\'s.':need>=3?'That means mostly B\'s and C\'s with some A\'s.':'That is within reach with steady work.';
+    msg='You need a GPA of about '+need.toFixed(2)+' next semester to reach a CGPA of '+g.toFixed(2)+'. '+hint+' Best possible: '+max.toFixed(2)+'. Worst case: '+min.toFixed(2)+'.'}
+  o.textContent=msg;
+});
+
+/* budget */
+async function xLoadBudget(){
+  var l=await call('GET','/api/x/money');if(!Array.isArray(l))return;
+  var m=new Date().toISOString().slice(0,7),inn=0,out=0,tin=0,tout=0;
+  l.forEach(function(x){if(x.kind==='in')tin+=x.amount;else tout+=x.amount;if(String(x.date).slice(0,7)===m){if(x.kind==='in')inn+=x.amount;else out+=x.amount}});
+  $('#xBudSum').innerHTML='<b>This month:</b> received '+naira(inn)+', spent '+naira(out)+'. <b>Balance (last 90 days):</b> '+naira(tin-tout)+(out>inn&&inn>0?'<br>You have spent more than you received this month. Try to cut small daily costs.':'');
+  $('#xBudList').innerHTML=l.slice(0,40).map(function(x){return row((x.kind==='in'?'+ ':'- ')+naira(x.amount)+(x.label?' · '+esc(x.label):''),esc(fmtDate(x.date)),bt('xb-del',x.id,'Delete','danger'))}).join('')||'<p class="note-small" style="text-align:left">No records yet. Add what you receive and spend.</p>';
+}
+$('#xBudForm').addEventListener('submit',async function(e){e.preventDefault();var r=await call('POST','/api/x/money',{kind:$('#xbKind').value,amount:$('#xbAmt').value,label:$('#xbLabel').value});if(r.error)return say($('#xbMsg'),r.error);$('#xbAmt').value='';$('#xbLabel').value='';say($('#xbMsg'),'Added.',true);xLoadBudget()});
+$('#xBudList').addEventListener('click',async function(e){var b=e.target.closest('button[data-act="xb-del"]');if(!b)return;await call('DELETE','/api/x/money/'+b.dataset.id);xLoadBudget()});
+
+/* wellbeing */
+var MOOD={good:'Great. Keep your routine: sleep, water and short breaks. Maybe help a course mate today.',ok:'That is fine. Pick one small task and finish it. Small wins lift the mood.',stress:'Stress is normal in school. Try the breathing exercise below, then write the three most important things for today and do only the first one. Talk to someone you trust.',low:'Thank you for being honest. Please do not carry it alone: talk to a friend, a family member or your school counselling unit. If you ever feel unsafe or want to hurt yourself, tell someone right now and see the Emergency tab.'};
+$('#xMood').addEventListener('click',function(e){var b=e.target.closest('[data-mood]');if(!b)return;var o=$('#xMoodOut');o.hidden=false;o.textContent=MOOD[b.dataset.mood]});
+var breathT=null;
+$('#xBreathBtn').addEventListener('click',function(){
+  var c=$('#xBreathC'),b=this;
+  if(breathT){clearInterval(breathT);breathT=null;c.textContent='Ready';c.className='bcircle';b.textContent='Start breathing';return}
+  var step=0,total=0,phases=[['Breathe in',4,'in'],['Hold',4,''],['Breathe out',6,'out']];b.textContent='Stop';
+  function show(){var p=phases[step%3];c.textContent=p[0];c.className='bcircle '+p[2]}
+  var left=phases[0][1];show();
+  breathT=setInterval(function(){left-=1;total+=1;if(total>=60){clearInterval(breathT);breathT=null;c.textContent='Well done';c.className='bcircle';b.textContent='Start again';return}if(left<=0){step+=1;left=phases[step%3][1];show()}},1000);
+});
+
+/* study groups + mentors */
+async function xLoadGroups(){
+  var l=await call('GET','/api/x/groups');if(!Array.isArray(l))return;
+  $('#xGroups').innerHTML=l.length?l.map(function(g){return '<div class="ccard"><span class="pill">'+esc(g.course)+'</span><b>'+esc(g.title)+'</b>'+(g.details?'<p>'+esc(g.details)+'</p>':'')+(g.status==='pending'?'<small>Waiting for admin approval</small>':'')+'<div class="row2">'+(g.status==='approved'?'<a class="btn wa sm" target="_blank" rel="noopener" href="'+esc(g.link)+'">Join on WhatsApp</a>':'')+(g.mine?'<button type="button" class="btn danger sm" data-xg="'+g.id+'">Delete</button>':'')+'</div></div>'}).join(''):'<p class="note-small" style="text-align:left">No study groups yet. Start one.</p>';
+}
+$('#xGroupForm').addEventListener('submit',async function(e){e.preventDefault();var r=await call('POST','/api/x/groups',{course:$('#xgCourse').value,title:$('#xgTitle').value,link:$('#xgLink').value,details:$('#xgDet').value});if(r.error)return say($('#xgMsg'),r.error);$('#xGroupForm').reset();say($('#xgMsg'),r.message||'Sent.',true);xLoadGroups()});
+$('#xGroups').addEventListener('click',async function(e){var b=e.target.closest('[data-xg]');if(!b)return;await call('DELETE','/api/x/groups/'+b.dataset.xg);xLoadGroups()});
+async function xLoadMentors(){
+  var l=await call('GET','/api/x/mentors');if(!Array.isArray(l))return;
+  $('#xMentors').innerHTML=l.length?l.map(function(m){return '<div class="ccard"><span class="pill">'+esc(m.level||'Senior student')+'</span><b>'+esc(m.name)+'</b><small>'+esc(m.programme)+(m.school?' · '+esc(m.school):'')+'</small><p>'+esc(m.bio)+'</p>'+(m.status==='pending'?'<small>Waiting for admin approval</small>':'')+'<div class="row2">'+(m.phone?'<a class="btn wa sm" target="_blank" rel="noopener" href="'+esc(waLink(m.phone,'Hello '+m.name.split(' ')[0]+', I found you on Tobi World Wide mentors.'))+'">Message on WhatsApp</a>':'')+(m.mine?'<button type="button" class="btn danger sm" data-xm="'+m.id+'">Remove</button>':'')+'</div></div>'}).join(''):'<p class="note-small" style="text-align:left">No mentors yet. Be the first.</p>';
+}
+$('#xMentorForm').addEventListener('submit',async function(e){e.preventDefault();var r=await call('POST','/api/x/mentors',{level:$('#xmLevel').value,programme:$('#xmProg').value,phone:$('#xmPhone').value,bio:$('#xmBio').value});if(r.error)return say($('#xmMsg'),r.error);$('#xMentorForm').reset();say($('#xmMsg'),r.message||'Sent.',true);xLoadMentors()});
+$('#xMentors').addEventListener('click',async function(e){var b=e.target.closest('[data-xm]');if(!b)return;await call('DELETE','/api/x/mentors/'+b.dataset.xm);xLoadMentors()});
+
+/* CV, essay */
+function xFillCv(){if(!$('#cvName').value&&APP.user){$('#cvName').value=APP.user.name||'';$('#cvEmail').value=APP.user.email||''}}
+async function xMakeCv(kind){
+  var b=$('#cvBtn');b.disabled=true;$('#cvCover').disabled=true;say($('#cvMsg'),'Working on it. This can take up to a minute...',true);
+  var r=await call('POST','/api/x/cv',{kind:kind,name:$('#cvName').value,email:$('#cvEmail').value,phone:$('#cvPhone').value,target:$('#cvTarget').value,school:(APP.user&&APP.user.school)||'',programme:(APP.user&&APP.user.programme)||'',education:$('#cvEdu').value,skills:$('#cvSkills').value,experience:$('#cvExp').value,objective:$('#cvObj').value});
+  b.disabled=false;$('#cvCover').disabled=false;if(r.error)return say($('#cvMsg'),r.error);say($('#cvMsg'),'Done. Read it and fix anything that is not right.',true);$('#cvText').textContent=r.text;$('#cvOut').hidden=false;
+}
+$('#xCvForm').addEventListener('submit',function(e){e.preventDefault();xMakeCv('cv')});
+$('#cvCover').addEventListener('click',function(){xMakeCv('cover')});
+$('#cvPrint').addEventListener('click',function(){var w=window.open('','_blank');if(!w)return toast('Allow pop-ups to print.');w.document.write('<title>CV</title><pre style="font:14px/1.5 Arial,sans-serif;white-space:pre-wrap;max-width:720px;margin:24px auto">'+esc($('#cvText').textContent)+'</pre>');w.document.close();w.focus();w.print()});
+$('#xEssayForm').addEventListener('submit',async function(e){e.preventDefault();var b=$('#esBtn');b.disabled=true;say($('#esMsg'),'Reading your essay...',true);
+  var r=await call('POST','/api/x/essay',{prompt:$('#esPrompt').value,text:$('#esText').value});b.disabled=false;
+  if(r.error)return say($('#esMsg'),r.error);say($('#esMsg'),'Feedback ready.',true);$('#esFeed').textContent=r.text;$('#esOut').hidden=false});
+
+/* links, contacts, referral, payments */
+function xLoadLinks(){$('#xLinks').innerHTML=OFFICIAL_LINKS.map(function(l){return '<div class="ccard"><b>'+esc(l[0])+'</b><p>'+esc(l[1])+'</p><div class="row2"><a class="btn sm" target="_blank" rel="noopener" href="'+esc(l[2])+'">Open website</a></div></div>'}).join('')}
+async function xLoadSos(){
+  var l=await call('GET','/api/x/contacts');if(!Array.isArray(l))return;
+  $('#xContacts').innerHTML=l.length?l.map(function(c){return '<div class="ccard"><span class="pill">'+(c.cat==='emergency'?'Emergency':'Support')+'</span><b>'+esc(c.name)+'</b>'+(c.note?'<small>'+esc(c.note)+'</small>':'')+(c.phone?'<div class="row2"><a class="btn sm" href="tel:'+esc(c.phone.replace(/[^\d+]/g,''))+'">Call '+esc(c.phone)+'</a></div>':'')+'</div>'}).join(''):'<p class="note-small" style="text-align:left">Your school contacts have not been added yet. In danger, call 112.</p>';
+}
+async function xLoadRefer(){
+  var me=await call('GET','/api/x/me');if(!me||me.error)return;var link=location.origin+'/?ref='+me.refCode;
+  $('#xRefLink').textContent=link;$('#xRefCount').textContent=me.referrals+' friend'+(me.referrals===1?'':'s')+' joined with your link';
+  $('#xRefWa').href='https://wa.me/?text='+encodeURIComponent('Join Tobi World Wide for school news, scholarships, JAMB practice and free study tools: '+link);
+}
+$('#xRefCopy').addEventListener('click',function(){xCopy('xRefLink',this)});
+async function xLoadPay(){
+  var r=await call('GET','/api/x/products');if(!r||r.error)return;
+  $('#xPayNote').textContent=r.enabled?'Pay safely with card or bank transfer through Paystack. Your receipt is saved below.':'Online payment is not switched on yet. Use Request help to arrange it with the admin.';
+  $('#xProducts').innerHTML=r.products.length?r.products.map(function(p){return '<div class="ccard"><b>'+esc(p.name)+'</b><small>'+naira(p.amount)+'</small>'+(p.desc?'<p>'+esc(p.desc)+'</p>':'')+'<div class="row2">'+(r.enabled?'<button type="button" class="btn sm" data-pay="'+p.id+'">Pay '+naira(p.amount)+'</button>':'<a class="btn sm" href="#help">Request this in Help</a>')+'</div></div>'}).join(''):'<p class="note-small" style="text-align:left">No paid services listed yet.</p>';
+  $('#xPayments').innerHTML=r.payments.length?r.payments.map(function(p){return row(esc(p.name)+' · '+naira(p.amount),esc(fmtDate(String(p.at).slice(0,10)))+' · '+(p.status==='paid'?'Paid':'Not completed'),'')}).join(''):'<p class="note-small" style="text-align:left">No payments yet.</p>';
+}
+$('#xProducts').addEventListener('click',async function(e){var b=e.target.closest('[data-pay]');if(!b)return;b.disabled=true;var r=await call('POST','/api/x/pay',{productId:Number(b.dataset.pay)});b.disabled=false;if(r.error)return say($('#xPayMsg'),r.error);location.href=r.url});
+
+/* post trust features: verified badge, translate, report */
+var _dp=drawPosts;drawPosts=function(){_dp();var f=document.querySelector('#featureSlot .feature');if(f){var p=APP.posts.filter(function(x){return String(x.id)===f.dataset.p})[0],c=f.querySelector('.chip');if(p&&p.v&&c)c.insertAdjacentHTML('afterend','<span class="chip ver" style="align-self:flex-start">✔ Verified</span>')}};
+var _pc=postChips;postChips=function(p,i){var h=_pc(p,i);if(p.v){var k=h.lastIndexOf('</div>');h=h.slice(0,k)+'<span class="chip ver">✔ Verified</span>'+h.slice(k)}return h};
+var _op=openPost;openPost=function(id){
+  _op(id);var p=APP.posts.filter(function(x){return String(x.id)===String(id)})[0];if(!p)return;
+  var ch=$('#paper .chips');if(ch&&p.v)ch.insertAdjacentHTML('beforeend','<span class="chip ver">✔ Verified by Tobi World Wide</span>');
+  if(!xOn())return;
+  var box=document.createElement('div');box.className='share';box.style.marginTop='14px';
+  box.innerHTML='<span style="align-self:center;font-weight:700">Read in:</span>'+Object.keys(LANGS).map(function(k){return '<button class="btn ghost sm" type="button" data-trl="'+k+'">'+LANGS[k]+'</button>'}).join('')+'<button class="btn ghost sm" type="button" id="xReport">Report this post</button><div id="xTrOut" class="callout" hidden style="flex-basis:100%;white-space:pre-wrap"></div>';
+  $('#paper').appendChild(box);
+  box.addEventListener('click',async function(e){
+    var t=e.target.closest('[data-trl]');
+    if(t){var out=$('#xTrOut');out.hidden=false;out.textContent='Translating...';var tmp=document.createElement('div');tmp.innerHTML=p.body||'';var txt=(p.h+'. '+p.x+' '+(tmp.textContent||'')).slice(0,3400);var r=await call('POST','/api/x/translate',{text:txt,lang:t.dataset.trl});out.textContent=r.error?r.error:r.text+'\n\n(Translated by AI. Check the original for exact dates and amounts.)';return}
+    if(e.target.id==='xReport'){var why=window.prompt('What is wrong with this post? (for example: fake, old, wrong date)');if(why===null)return;var r2=await call('POST','/api/x/report',{postId:String(p.id),reason:why});toast(r2.error||r2.message||'Thanks. The admin will check it.')}
+  });
+};
+
+/* ===================== owner tools (admin) ===================== */
+var XA=null,XUNIS=null;
+$('#xaTabs').addEventListener('click',function(e){var b=e.target.closest('.ctab');if(!b)return;showTab('#xaTabs','xa-',b.dataset.tab)});
+async function drawXAdmin(){
+  if(!apiOn()){$('#xPanel').hidden=true;return}
+  $('#xPanel').hidden=false;
+  var j=await call('GET','/api/admin/x/all');if(!j||j.error)return;XA=j;
+  if(!XUNIS){var u=await call('GET','/api/universities');XUNIS=Array.isArray(u)?u:[];var opts=XUNIS.map(function(x){return '<option value="'+x.Id+'">'+esc(x.Name)+'</option>'}).join('');$('#acUni').insertAdjacentHTML('beforeend',opts);$('#abUni').insertAdjacentHTML('beforeend',opts)}
+  var pend=j.groups.filter(function(x){return x.status==='pending'}).length+j.mentors.filter(function(x){return x.status==='pending'}).length+j.reports.length;
+  $('#xCount').textContent=pend?'('+pend+' need attention)':'';
+  var pill=function(s){return s==='pending'?' <span class="pill new">Pending</span>':''};
+  $('#xaReps').innerHTML=j.reps.map(function(r){return row(esc(r.name),esc(r.email)+(r.tag?' · '+esc(r.tag):''),bt('xa-rep-off',r.email,'Remove rep','danger'))}).join('')||'<p class="note-small" style="text-align:left">No class reps yet.</p>';
+  $('#xaContacts').innerHTML=j.contacts.map(function(c){return row(esc(c.name)+' <span class="pill">'+esc(c.cat)+'</span>',esc(c.phone)+(c.note?' · '+esc(c.note):'')+' · '+esc(c.school),bt('xa-del-contacts',c.id,'Delete','danger'))}).join('')||'<p class="note-small" style="text-align:left">No contacts yet. Add campus security, health centre and counselling numbers.</p>';
+  $('#xaGroups').innerHTML=j.groups.map(function(g){return row(esc(g.title)+pill(g.status),esc(g.course)+' · '+esc(g.school)+' · <a href="'+esc(g.link)+'" target="_blank" rel="noopener">link</a>',(g.status==='pending'?bt('xa-ok-groups',g.id,'Approve'):'')+bt('xa-del-groups',g.id,'Delete','danger'))}).join('')||'<p class="note-small" style="text-align:left">No groups yet.</p>';
+  $('#xaMentors').innerHTML=j.mentors.map(function(g){return row(esc(g.name)+pill(g.status),esc(g.level)+' · '+esc(g.programme)+' · '+esc(g.school)+' · '+esc(g.phone)+'<br>'+esc(g.bio),(g.status==='pending'?bt('xa-ok-mentors',g.id,'Approve'):'')+bt('xa-del-mentors',g.id,'Delete','danger'))}).join('')||'<p class="note-small" style="text-align:left">No mentors yet.</p>';
+  $('#xaReports').innerHTML=j.reports.map(function(r){return row(esc(r.headline||('Post '+r.postId)),esc(r.reason||'No reason given')+' · '+esc(String(r.at).slice(0,10)),bt('xa-del-reports',r.id,'Dismiss')+(r.headline?bt('xa-unver',r.postId,'Remove verified badge'):''))}).join('')||'<p class="note-small" style="text-align:left">No reported posts.</p>';
+  $('#xaSponsors').innerHTML=j.sponsors.map(function(s){return row(esc(s.title),esc(s.body)+' · '+s.views+' views · '+s.clicks+' clicks'+(s.starts?' · from '+esc(s.starts):'')+(s.ends?' · to '+esc(s.ends):''),bt('xa-del-sponsors',s.id,'Delete','danger'))}).join('')||'<p class="note-small" style="text-align:left">No adverts yet.</p>';
+  $('#xaPayNote').textContent=j.payEnabled?'Paystack is switched on. Add the webhook URL https://YOUR-SITE/api/x/pay/webhook in your Paystack dashboard so payments confirm automatically.':'Paystack is not switched on. Add PAYSTACK_SECRET_KEY in Render to accept online payments. Until then students are told to contact you on WhatsApp.';
+  $('#xaProducts').innerHTML=j.products.map(function(p){return row(esc(p.name)+' · '+naira(p.amount),esc(p.desc),bt('xa-del-products',p.id,'Delete','danger'))}).join('')||'<p class="note-small" style="text-align:left">No services yet.</p>';
+  $('#xaPayments').innerHTML=j.payments.map(function(p){return row(esc(p.name)+' · '+naira(p.amount)+(p.status==='paid'?' <span class="pill">Paid</span>':' <span class="pill new">Not paid</span>'),esc(p.student)+' · '+esc(String(p.at).slice(0,10))+' · '+esc(p.ref),(p.status!=='paid'?bt('xa-paid',p.id,'Mark paid'):'')+(p.phone?'<a class="btn wa sm" target="_blank" rel="noopener" href="'+esc(waLink(p.phone,'Hello '+p.student.split(' ')[0]+', about your payment for '+p.name))+'">WhatsApp</a>':''))}).join('')||'<p class="note-small" style="text-align:left">No payments yet.</p>';
+  $('#abNote').textContent=j.emailEnabled?'Emails go out in the background, about 4 per second.':'Email is not switched on. Add RESEND_API_KEY (and RESEND_FROM with your own domain) in Render. You can still use the WhatsApp list.';
+  $('#xaBroadcasts').innerHTML=j.broadcasts.map(function(b){return row(esc(b.subject),esc(b.audience)+' · sent '+b.sent+' of '+b.total+(b.failed?' · '+b.failed+' failed':'')+' · '+esc(String(b.at).slice(0,10)),'')}).join('')||'<p class="note-small" style="text-align:left">Nothing sent yet.</p>';
+  var st=await call('GET','/api/admin/x/stats');if(st&&!st.error)drawXStats(st);
+}
+function drawXStats(s){
+  var tile=function(n,l){return '<div class="ccard"><b style="font-size:26px">'+n+'</b><small>'+l+'</small></div>'};
+  var max=Math.max.apply(null,s.daily.map(function(d){return d.n}).concat([1]));
+  $('#xStats').innerHTML='<div class="cgrid">'+tile(s.students,'students')+tile(s.week,'joined in 7 days')+tile(s.signedUpToday,'joined today')+tile(s.withPhone,'with WhatsApp number')+tile(s.referred,'came from referrals')+tile(s.posts,'news posts')+tile(s.notes,'notes uploaded')+tile(s.openRequests,'open help requests')+tile(naira(s.paidNaira),'paid online')+'</div>'
+    +'<h3>Signups, last 14 days</h3><div style="display:flex;gap:4px;align-items:flex-end;height:90px">'+s.daily.map(function(d){return '<div title="'+d.day+': '+d.n+'" style="flex:1;background:var(--brand);border-radius:4px 4px 0 0;height:'+Math.max(4,Math.round(d.n/max*84))+'px"></div>'}).join('')+'</div>'
+    +'<h3>Students by university</h3>'+(s.byUni.map(function(u){return row(esc(u.name),u.n+' students','')}).join('')||'<p class="note-small" style="text-align:left">No students yet.</p>')
+    +'<h3>Most read posts</h3>'+(s.top.map(function(t){return row(esc(t.title),t.views+' views · '+t.shares+' shares','')}).join('')||'<p class="note-small" style="text-align:left">No reads recorded yet.</p>');
+}
+$('#xaRepForm').addEventListener('submit',async function(e){e.preventDefault();var r=await call('POST','/api/admin/x/reps',{email:$('#arEmail').value,tag:$('#arTag').value,on:true});if(r.error)return say($('#xaMsg'),r.error);$('#xaRepForm').reset();say($('#xaMsg'),'Class rep added.',true);drawXAdmin()});
+$('#xaContactForm').addEventListener('submit',async function(e){e.preventDefault();var r=await call('POST','/api/admin/x/contacts',{cat:$('#acType').value,name:$('#acName').value,phone:$('#acPhone').value,note:$('#acNote').value,universityId:$('#acUni').value});if(r.error)return say($('#xaMsg'),r.error);$('#xaContactForm').reset();say($('#xaMsg'),'Contact added.',true);drawXAdmin()});
+$('#xaSponsorForm').addEventListener('submit',async function(e){e.preventDefault();var r=await call('POST','/api/admin/x/sponsors',{title:$('#spTitle').value,body:$('#spBody').value,link:$('#spLink').value,starts:$('#spStart').value,ends:$('#spEnd').value});if(r.error)return say($('#xaMsg'),r.error);$('#xaSponsorForm').reset();say($('#xaMsg'),'Advert added.',true);drawXAdmin()});
+$('#xaProductForm').addEventListener('submit',async function(e){e.preventDefault();var r=await call('POST','/api/admin/x/products',{name:$('#apName').value,amount:$('#apAmt').value,desc:$('#apDesc').value});if(r.error)return say($('#xaMsg'),r.error);$('#xaProductForm').reset();say($('#xaMsg'),'Service added.',true);drawXAdmin()});
+$('#xaBcForm').addEventListener('submit',async function(e){e.preventDefault();if(!window.confirm('Send this email to '+($('#abUni').value?'students of this university':'ALL students')+'?'))return;var r=await call('POST','/api/admin/x/broadcast',{subject:$('#abSub').value,text:$('#abText').value,universityId:$('#abUni').value});if(r.error)return say($('#xaMsg'),r.error);say($('#xaMsg'),r.message,true);setTimeout(drawXAdmin,4000)});
+var ABL=[];
+$('#abLoad').addEventListener('click',async function(){var l=await call('GET','/api/admin/x/audience?universityId='+encodeURIComponent($('#abUni').value));if(!Array.isArray(l))return;ABL=l.filter(function(x){return x.phone});var msg=$('#abText').value||'Hello from Tobi World Wide.';$('#abList').innerHTML=ABL.slice(0,200).map(function(x){return row(esc(x.name),esc(x.phone),'<a class="btn wa sm" target="_blank" rel="noopener" href="'+esc(waLink(x.phone,msg))+'">WhatsApp</a>')}).join('')||'<p class="note-small" style="text-align:left">No students with numbers.</p>'});
+$('#abCopy').addEventListener('click',function(){var t=ABL.map(function(x){return x.phone}).join('\n');try{navigator.clipboard.writeText(t);toast(ABL.length+' numbers copied.')}catch(e){toast('Could not copy.')}});
+$('#xPanel').addEventListener('click',async function(e){
+  var b=e.target.closest('button[data-act]');if(!b||b.dataset.act.indexOf('xa-')!==0)return;var a=b.dataset.act,r;
+  if(a.indexOf('xa-del-')===0){if(!b.dataset.sure){b.dataset.sure='1';b.textContent='Click again to delete';return}r=await call('DELETE','/api/admin/x/'+a.slice(7)+'/'+b.dataset.id)}
+  else if(a.indexOf('xa-ok-')===0)r=await call('POST','/api/admin/x/'+a.slice(6)+'/'+b.dataset.id+'/approve');
+  else if(a==='xa-paid')r=await call('POST','/api/admin/x/payments/'+b.dataset.id+'/paid');
+  else if(a==='xa-unver')r=await call('POST','/api/admin/x/posts/'+b.dataset.id+'/verify',{on:false});
+  else if(a==='xa-rep-off')r=await call('POST','/api/admin/x/reps',{email:b.dataset.id,on:false});
+  if(r&&r.error)return say($('#xaMsg'),r.error);drawXAdmin();
+});
+
 /* ---- start ---- */
 (async function boot(){
   try{if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol))navigator.serviceWorker.register('/sw.js').catch(function(){})}catch(e){}
