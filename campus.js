@@ -4,7 +4,7 @@
 
 const OPP_KINDS = ['Scholarship', 'SIWES', 'Internship', 'Job', 'Other'];
 const DEADLINE_KINDS = ['fees', 'nelfund', 'scholarship', 'exam', 'other'];
-const LISTING_KINDS = ['hostel', 'roommate', 'sale', 'other'];
+const LISTING_KINDS = ['hostel', 'roommate', 'sale', 'lost', 'found', 'other'];
 const FILE_TYPES = {
   'application/pdf': 'pdf', 'image/png': 'png', 'image/jpeg': 'jpg', 'text/plain': 'txt',
   'application/msword': 'doc', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',

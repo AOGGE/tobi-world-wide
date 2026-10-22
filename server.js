@@ -835,7 +835,7 @@ async function runNewsDesk() {
     const bodyHtml = articleHtml(item.body);
     if (item.official && settings[0].AutoPublishOfficial) {
       await dbWrite(
-        'INSERT dbo.NewsArticles (Topic, Headline, Summary, BodyHtml, ReadingMinutes, School, SourceUrl, AuthorId) VALUES (?, ?, ?, ?, ?, ?, ?, NULL)',
+        'INSERT dbo.NewsArticles (Topic, Headline, Summary, BodyHtml, ReadingMinutes, School, SourceUrl, AuthorId, Verified) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, true)',
         [item.topic, item.headline, item.summary, bodyHtml, readingMinutes(item.body), item.school, item.sourceUrl]
       );
       counts.published += 1;
@@ -898,6 +898,7 @@ function routeTable() {
             d: 'News',
             body: r.BodyHtml,
             school: r.School || 'All schools',
+            v: !!(r.Verified ?? r.verified),
             date: new Date(r.PublishedAt).toISOString().slice(0, 10)
           }));
           sendJson(res, 200, posts.concat(DEFAULT_POSTS));
@@ -962,6 +963,7 @@ function routeTable() {
           }
           throw err;
         }
+        features.afterRegister(student.Id, body.ref).catch(() => {});
         sendJson(res, 201, { id: student.Id, message: 'account_created' });
         return;
       }
@@ -1054,9 +1056,9 @@ function routeTable() {
           return;
         }
         const post = await dbWrite(
-          'INSERT dbo.NewsArticles (Topic, Headline, Summary, BodyHtml, ReadingMinutes, School, SourceUrl, AuthorId) OUTPUT INSERTED.Id '
-          + 'VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-          [topic, headline, summary, article, readingMinutes(article), school, sourceUrl, isPortalAdmin ? null : student.Id]
+          'INSERT dbo.NewsArticles (Topic, Headline, Summary, BodyHtml, ReadingMinutes, School, SourceUrl, AuthorId, Verified) OUTPUT INSERTED.Id '
+          + 'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [topic, headline, summary, article, readingMinutes(article), school, sourceUrl, isPortalAdmin ? null : student.Id, true]
         );
         sendJson(res, 201, { id: post.Id, message: 'published' });
         return;
@@ -1107,7 +1109,8 @@ function routeTable() {
           sendJson(res, 429, { error: 'You have asked many questions in the last hour. Please try again in a while.' });
           return;
         }
-        const system = `You are a patient university tutor for a Nigerian student${student.Programme ? ` studying ${student.Programme}` : ''} at ${student.University}. `
+        const LANGN = { pcm: 'Nigerian Pidgin English', yo: 'Yoruba', ha: 'Hausa', ig: 'Igbo' }[body.lang];
+        const system = (LANGN ? `Reply in simple ${LANGN}, but keep technical terms and course names in English. ` : '') + `You are a patient university tutor for a Nigerian student${student.Programme ? ` studying ${student.Programme}` : ''} at ${student.University}. `
           + `The current course is "${subject}". ${TUTOR_MODES[mode]} Use plain language and short paragraphs without markdown symbols. `
           + 'If you are not sure about a fact, say so and tell the student to confirm with their lecturer or course material. Stay on the course topic.';
         const text = await askClaude(system, tutorMessages(body.history, question), 900, 60000);
@@ -1505,8 +1508,8 @@ function routeTable() {
           if (!item) return false;
           if (action === 'approve') {
             const published = await q(
-              'INSERT dbo.NewsArticles (Topic, Headline, Summary, BodyHtml, ReadingMinutes, School, SourceUrl, AuthorId) '
-              + 'OUTPUT INSERTED.Id VALUES (?, ?, ?, ?, ?, ?, ?, NULL)',
+              'INSERT dbo.NewsArticles (Topic, Headline, Summary, BodyHtml, ReadingMinutes, School, SourceUrl, AuthorId, Verified) '
+              + 'OUTPUT INSERTED.Id VALUES (?, ?, ?, ?, ?, ?, ?, NULL, true)',
               [item.Topic, item.Headline, item.Summary, item.BodyHtml, readingMinutes(item.BodyHtml), item.School, item.SourceUrl]
             );
             await q("UPDATE dbo.PendingNewsArticles SET Status = N'published', ReviewedAt = SYSUTCDATETIME(), PublishedArticleId = ? WHERE Id = ?", [published.rows[0].Id, id]);

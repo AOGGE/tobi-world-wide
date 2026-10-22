@@ -35,6 +35,7 @@ function cleanQuestion(raw, subject, source) {
 }
 
 const makeCampus = require('./campus');
+const makeExtras = require('./extras');
 
 module.exports = function makeFeatures(deps) {
   const {
@@ -93,10 +94,12 @@ module.exports = function makeFeatures(deps) {
   }
 
   const campus = makeCampus(deps);
+  const extras = makeExtras({ ...deps, sendEmail });
 
   async function handle(req, res, pathname, searchParams) {
     const method = req.method;
     if (await campus.handle(req, res, pathname, searchParams)) return true;
+    if (await extras.handle(req, res, pathname, searchParams)) return true;
 
     // ===== help requests (students) =====
     if (pathname === '/api/requests') {
@@ -374,5 +377,5 @@ module.exports = function makeFeatures(deps) {
     setInterval(autoNews, 30 * 60 * 1000).unref();
   }
 
-  return { handle, startScheduler };
+  return { handle, startScheduler, afterRegister: extras.afterRegister };
 };

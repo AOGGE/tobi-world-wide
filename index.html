@@ -946,11 +946,11 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
 
         <div class="cpane" id="cp-market" hidden>
           <div class="cwarn">Only students of your school see these. Never pay before you have seen the room or the item, and meet in a public place.</div>
-          <div class="admin-actions" style="margin-top:0"><select id="mkKind" aria-label="Filter"><option value="">All</option><option value="hostel">Hostel or room</option><option value="roommate">Roommate</option><option value="sale">For sale</option><option value="other">Other</option></select><span class="msg" id="mkMsg"></span></div>
+          <div class="admin-actions" style="margin-top:0"><select id="mkKind" aria-label="Filter"><option value="">All</option><option value="hostel">Hostel or room</option><option value="roommate">Roommate</option><option value="sale">For sale</option><option value="lost">Lost</option><option value="found">Found</option><option value="other">Other</option></select><span class="msg" id="mkMsg"></span></div>
           <div class="cgrid" id="mkList"></div>
           <details style="margin-top:6px"><summary style="cursor:pointer;font-weight:700">Post a room, roommate request or item</summary>
             <form id="mkForm" class="form-grid" style="margin-top:12px" autocomplete="off">
-              <div class="field"><label for="pkKind">Type</label><select id="pkKind"><option value="hostel">Hostel or room</option><option value="roommate">Roommate wanted</option><option value="sale">For sale</option><option value="other">Other</option></select></div>
+              <div class="field"><label for="pkKind">Type</label><select id="pkKind"><option value="hostel">Hostel or room</option><option value="roommate">Roommate wanted</option><option value="sale">For sale</option><option value="lost">Lost item</option><option value="found">Found item</option><option value="other">Other</option></select></div>
               <div class="field"><label for="pkTitle">Title</label><input id="pkTitle" type="text" maxlength="160" placeholder="e.g. Self-contain near campus gate"></div>
               <div class="field"><label for="pkPrice">Price (optional)</label><input id="pkPrice" type="text" maxlength="40"></div>
               <div class="field full"><label for="pkDet">Details</label><textarea id="pkDet" style="min-height:80px" maxlength="800"></textarea></div>
@@ -2576,7 +2576,7 @@ async function loadMarket(){
   var l=await call('GET','/api/listings');if(!Array.isArray(l)){say($('#mkMsg'),'Could not load posts.');return}
   CAMPUS.listings=l;drawMarket();
 }
-var KIND_LABEL={hostel:'Hostel or room',roommate:'Roommate',sale:'For sale',other:'Other'};
+var KIND_LABEL={hostel:'Hostel or room',roommate:'Roommate',sale:'For sale',lost:'Lost',found:'Found',other:'Other'};
 function drawMarket(){
   var k=$('#mkKind').value,l=CAMPUS.listings.filter(function(x){return !k||x.kind===k});
   $('#mkList').innerHTML=l.length?l.map(function(x){

@@ -273,3 +273,132 @@ SELECT v.t, v.d, v.p FROM (VALUES
   ('Sort out your hostel', 'Apply on campus early, or look for an off-campus room.', 10),
   ('Join your department and class WhatsApp groups', 'Ask your class rep so you do not miss notices.', 11)
 ) AS v(t, d, p) WHERE NOT EXISTS (SELECT 1 FROM ChecklistItems);
+
+-- ===== Batch A/B/C: class notices, tasks, money, planner, contacts, groups, mentors, reports, sponsors, referrals, payments =====
+ALTER TABLE StudentProfiles ADD COLUMN IF NOT EXISTS IsRep BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE StudentProfiles ADD COLUMN IF NOT EXISTS ClassTag VARCHAR(60);
+ALTER TABLE StudentProfiles ADD COLUMN IF NOT EXISTS RefCode VARCHAR(12);
+ALTER TABLE StudentProfiles ADD COLUMN IF NOT EXISTS ReferredBy BIGINT;
+ALTER TABLE NewsArticles ADD COLUMN IF NOT EXISTS Verified BOOLEAN NOT NULL DEFAULT FALSE;
+
+CREATE TABLE IF NOT EXISTS ClassNotices (
+  Id BIGSERIAL PRIMARY KEY,
+  UniversityId BIGINT NOT NULL,
+  ClassTag VARCHAR(60) NOT NULL,
+  Kind VARCHAR(12) NOT NULL DEFAULT 'notice',
+  Title VARCHAR(160) NOT NULL,
+  Body TEXT,
+  DueDate DATE,
+  AuthorId BIGINT,
+  AuthorName VARCHAR(80),
+  CreatedAt TIMESTAMP NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS IX_ClassNotices_Class ON ClassNotices (UniversityId, ClassTag, Id DESC);
+
+CREATE TABLE IF NOT EXISTS StudentTasks (
+  Id BIGSERIAL PRIMARY KEY,
+  StudentId BIGINT NOT NULL REFERENCES StudentProfiles(Id) ON DELETE CASCADE,
+  Course VARCHAR(80),
+  Title VARCHAR(160) NOT NULL,
+  Kind VARCHAR(12) NOT NULL DEFAULT 'assignment',
+  DueDate DATE,
+  Done BOOLEAN NOT NULL DEFAULT FALSE
+);
+
+CREATE TABLE IF NOT EXISTS StudentMoney (
+  Id BIGSERIAL PRIMARY KEY,
+  StudentId BIGINT NOT NULL REFERENCES StudentProfiles(Id) ON DELETE CASCADE,
+  Kind VARCHAR(3) NOT NULL,
+  Amount INT NOT NULL,
+  Label VARCHAR(80),
+  OnDate DATE NOT NULL DEFAULT current_date
+);
+
+CREATE TABLE IF NOT EXISTS StudentPlans (
+  StudentId BIGINT PRIMARY KEY REFERENCES StudentProfiles(Id) ON DELETE CASCADE,
+  PlanText TEXT NOT NULL,
+  CreatedAt TIMESTAMP NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS SupportContacts (
+  Id BIGSERIAL PRIMARY KEY,
+  Category VARCHAR(12) NOT NULL DEFAULT 'emergency',
+  UniversityId BIGINT,
+  Name VARCHAR(120) NOT NULL,
+  Phone VARCHAR(40),
+  Note VARCHAR(300)
+);
+
+CREATE TABLE IF NOT EXISTS StudyGroups (
+  Id BIGSERIAL PRIMARY KEY,
+  UniversityId BIGINT,
+  Course VARCHAR(80) NOT NULL,
+  Title VARCHAR(160) NOT NULL,
+  Link VARCHAR(300) NOT NULL,
+  Details VARCHAR(400),
+  Status VARCHAR(10) NOT NULL DEFAULT 'pending',
+  SubmittedBy BIGINT,
+  CreatedAt TIMESTAMP NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS Mentors (
+  Id BIGSERIAL PRIMARY KEY,
+  Name VARCHAR(80) NOT NULL,
+  UniversityId BIGINT,
+  Programme VARCHAR(120),
+  LevelText VARCHAR(40),
+  Bio VARCHAR(500),
+  Phone VARCHAR(30),
+  Status VARCHAR(10) NOT NULL DEFAULT 'pending',
+  SubmittedBy BIGINT,
+  CreatedAt TIMESTAMP NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS PostReports (
+  Id BIGSERIAL PRIMARY KEY,
+  PostId VARCHAR(40) NOT NULL,
+  StudentId BIGINT,
+  Reason VARCHAR(300),
+  CreatedAt TIMESTAMP NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS Sponsors (
+  Id BIGSERIAL PRIMARY KEY,
+  Title VARCHAR(120) NOT NULL,
+  Body VARCHAR(300),
+  Link VARCHAR(500),
+  StartsOn DATE,
+  EndsOn DATE,
+  Clicks INT NOT NULL DEFAULT 0,
+  Views INT NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS Products (
+  Id BIGSERIAL PRIMARY KEY,
+  Name VARCHAR(120) NOT NULL,
+  Description VARCHAR(400),
+  AmountNaira INT NOT NULL,
+  IsActive BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+CREATE TABLE IF NOT EXISTS Payments (
+  Id BIGSERIAL PRIMARY KEY,
+  Reference VARCHAR(60) NOT NULL UNIQUE,
+  StudentId BIGINT NOT NULL,
+  ProductId BIGINT NOT NULL,
+  ProductName VARCHAR(120),
+  AmountNaira INT NOT NULL,
+  Status VARCHAR(10) NOT NULL DEFAULT 'pending',
+  CreatedAt TIMESTAMP NOT NULL DEFAULT now(),
+  PaidAt TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS Broadcasts (
+  Id BIGSERIAL PRIMARY KEY,
+  Subject VARCHAR(160),
+  Audience VARCHAR(80),
+  Sent INT NOT NULL DEFAULT 0,
+  Failed INT NOT NULL DEFAULT 0,
+  Total INT NOT NULL DEFAULT 0,
+  CreatedAt TIMESTAMP NOT NULL DEFAULT now()
+);
