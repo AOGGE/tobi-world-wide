@@ -837,7 +837,7 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
   <form class="authcard" id="cfForm" novalidate autocomplete="on">
     <h1>Cybercafé login</h1>
     <p class="sub">For cybercafé partners of Tobi World Wide</p>
-    <div class="field"><label for="cfEmail">Email</label><input id="cfEmail" type="email" autocomplete="username"></div>
+    <div class="field"><label for="cfEmail">Email or admin username</label><input id="cfEmail" type="text" autocomplete="username"></div>
     <div class="field"><label for="cfPass">Password</label><div class="pw"><input id="cfPass" type="password" autocomplete="current-password"><button type="button" data-toggle="cfPass">Show</button></div></div>
     <button class="btn" type="submit" id="cfBtn">Sign in</button>
     <div class="msg err" id="cfMsg" role="alert"></div>
@@ -3362,7 +3362,10 @@ async function loadCafeQs(){
   var open=l.filter(function(q){return !q.mine}).length;$('#cqCount').textContent=open?'('+open+' waiting for you)':'';
   $('#cqList').innerHTML=l.length?l.map(function(q){return '<div class="ccard"><span class="pill">'+esc(CAT_LABEL[q.cat]||q.cat)+(q.direct?' · asked you directly':'')+'</span><b>'+esc(q.title)+'</b>'+(q.body?'<p>'+esc(q.body)+'</p>':'')+'<small>Asked by '+esc(q.student)+' · '+esc(fmtDate(String(q.at).slice(0,10)))+' · '+q.answers+' answer'+(q.answers===1?'':'s')+(q.mine?' · you answered':'')+'</small><div class="row2" style="width:100%"><input type="text" maxlength="1500" placeholder="Type your answer" data-ans="'+q.id+'" style="flex:1;min-width:160px"><button type="button" class="btn sm" data-send="'+q.id+'">Answer</button></div></div>'}).join(''):'<p class="note-small" style="text-align:left">No questions from students yet.</p>';
 }
-$('#cfForm').addEventListener('submit',async function(e){e.preventDefault();var r=await ccall('POST','/api/cafe/login',{email:$('#cfEmail').value,password:$('#cfPass').value});if(r.error)return say($('#cfMsg'),r.error);try{sessionStorage.setItem('tww_cafe_token',r.token)}catch(x){}$('#cfPass').value='';say($('#cfMsg'),'',true);openCafe()});
+$('#cfForm').addEventListener('submit',async function(e){e.preventDefault();var u=$('#cfEmail').value.trim(),pw=$('#cfPass').value;var r=await ccall('POST','/api/cafe/login',{email:u,password:pw});
+  if(r.error){var p=await netCall('POST','/api/portal/login',{username:u,password:pw});
+    if(p&&!p.error&&p.token){view('adminlogin');$('#aEmail').value=u;$('#aPass').value=pw;$('#cfPass').value='';$('#adminForm').requestSubmit();return}
+    return say($('#cfMsg'),r.error)}try{sessionStorage.setItem('tww_cafe_token',r.token)}catch(x){}$('#cfPass').value='';say($('#cfMsg'),'',true);openCafe()});
 $('#cfLogout').addEventListener('click',function(){try{sessionStorage.removeItem('tww_cafe_token')}catch(e){}view('cafeLogin')});
 $('#cfEdit').addEventListener('submit',async function(e){e.preventDefault();var r=await ccall('PUT','/api/cafe/me',{area:$('#ceArea').value,address:$('#ceAddr').value,phone:$('#cePhone').value,hours:$('#ceHours').value,services:$('#ceServ').value});if(r.error)return say($('#ceMsg'),r.error);say($('#ceMsg'),'Saved. Students now see the new details.',true)});
 $('#cqList').addEventListener('click',async function(e){var b=e.target.closest('[data-send]');if(!b)return;var inp=$('#cqList').querySelector('[data-ans="'+b.dataset.send+'"]');var r=await ccall('POST','/api/cafe/questions/'+b.dataset.send+'/answer',{body:inp.value});if(r.error)return toast(r.error);toast('Answer sent.');loadCafeQs()});
