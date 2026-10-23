@@ -215,8 +215,16 @@ async function seedAdmin() {
   const username = String(process.env.ADMIN_USERNAME || '').trim();
   const password = String(process.env.ADMIN_PASSWORD || '');
   if (!username || password.length < 8) return;
-  const existing = await pool.query('SELECT 1 FROM PortalAdmins WHERE Username = $1', [username]);
-  if (existing.rowCount) return;
+  const existing = await pool.query('SELECT Id, PasswordHash FROM PortalAdmins WHERE Username = $1', [username]);
+  if (existing.rowCount) {
+    // The ADMIN_PASSWORD setting is the source of truth: if it was changed, update the stored hash.
+    if (!verifyPassword(password, existing.rows[0].passwordhash)) {
+      await pool.query('UPDATE PortalAdmins SET PasswordHash = $1 WHERE Id = $2', [hashPassword(password), existing.rows[0].id]);
+      await pool.query('DELETE FROM PortalSessions WHERE UserType = $1 AND UserId = $2', ['admin', existing.rows[0].id]);
+      console.log('Updated portal admin password from ADMIN_PASSWORD:', username);
+    }
+    return;
+  }
   await pool.query(
     'INSERT INTO PortalAdmins (Username, DisplayName, Email, PasswordHash) VALUES ($1, $2, $3, $4)',
     [username, process.env.ADMIN_NAME || username, process.env.ADMIN_EMAIL || null, hashPassword(password)]
