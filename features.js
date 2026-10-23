@@ -36,6 +36,7 @@ function cleanQuestion(raw, subject, source) {
 
 const makeCampus = require('./campus');
 const makeExtras = require('./extras');
+const makeCafe = require('./cafe');
 
 module.exports = function makeFeatures(deps) {
   const {
@@ -95,10 +96,12 @@ module.exports = function makeFeatures(deps) {
 
   const campus = makeCampus(deps);
   const extras = makeExtras({ ...deps, sendEmail });
+  const cafe = makeCafe(deps);
 
   async function handle(req, res, pathname, searchParams) {
     const method = req.method;
     if (await campus.handle(req, res, pathname, searchParams)) return true;
+    if (await cafe.handle(req, res, pathname, searchParams)) return true;
     if (await extras.handle(req, res, pathname, searchParams)) return true;
 
     // ===== help requests (students) =====

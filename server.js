@@ -858,7 +858,7 @@ const TUTOR_MODES = {
 
 const features = require('./features')({
   dbRows, dbWrite, withTransaction, sendJson, parseBody, requireStudent, getPortalUser, askClaude, aiEnabled,
-  rateLimited, tokenHash, hashPassword, parseSubjects, runNewsDesk
+  rateLimited, tokenHash, hashPassword, verifyPassword, parseSubjects, runNewsDesk
 });
 
 function routeTable() {
@@ -1692,7 +1692,7 @@ function routeTable() {
         return;
       }
 
-      if (pathname === '/admin' || pathname === '/admin-login.html') {
+      if (pathname === '/admin' || pathname === '/admin-login.html' || pathname === '/cafe') {
         const file = fs.existsSync(ADMIN_FILE) ? ADMIN_FILE : FRONTEND_FILE;
         if (fs.existsSync(file)) {
           serveStaticFile(res, file);

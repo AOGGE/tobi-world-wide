@@ -54,13 +54,24 @@ module.exports = function makeExtras(deps) {
   const paystackKey = () => process.env.PAYSTACK_SECRET_KEY || '';
   const paystackUrl = () => (process.env.PAYSTACK_URL || 'https://api.paystack.co').replace(/\/$/, '');
   async function markPaid(reference, amountKobo) {
-    const p = (await dbRows('SELECT Id, AmountNaira, Status FROM dbo.Payments WHERE Reference = ?', [reference]))[0];
+    const p = (await dbRows('SELECT Id, AmountNaira, Status, StudentId, ProductId FROM dbo.Payments WHERE Reference = ?', [reference]))[0];
     if (!p) return false;
     if (p.status === 'paid') return true;
     if (amountKobo != null && Number(amountKobo) < p.amountnaira * 100) return false;
     await dbWrite("UPDATE dbo.Payments SET Status = 'paid', PaidAt = now() WHERE Id = ?", [p.id]);
+    await grantPremium(p.studentid, p.productid);
     return true;
   }
+  async function grantPremium(studentId, productId) {
+    const pr = (await dbRows('SELECT PremiumDays FROM dbo.Products WHERE Id = ?', [productId]))[0];
+    const days = pr ? Number(pr.premiumdays) : 0;
+    if (days > 0) await dbWrite("UPDATE dbo.StudentProfiles SET PremiumUntil = (GREATEST(COALESCE(PremiumUntil, current_date), current_date) + ?::int) WHERE Id = ?", [days, studentId]);
+  }
+  async function isPremium(studentId) {
+    const r = (await dbRows('SELECT 1 AS ok FROM dbo.StudentProfiles WHERE Id = ? AND PremiumUntil >= current_date', [studentId]))[0];
+    return !!r;
+  }
+  const lim = async (s, n) => ((await isPremium(s.Id)) ? n * 3 : n);
 
   async function afterRegister(studentId, refCode) {
     const code = clip(refCode, 12).toUpperCase();
@@ -83,7 +94,8 @@ module.exports = function makeExtras(deps) {
       }
       const x = await myExtra(s);
       const c = (await dbRows('SELECT count(*) AS n FROM dbo.StudentProfiles WHERE ReferredBy = ?', [s.Id]))[0];
-      sendJson(res, 200, { ...x, classTag: (await dbRows('SELECT ClassTag FROM dbo.StudentProfiles WHERE Id = ?', [s.Id]))[0].classtag || '', referrals: Number(c.n) });
+      const pu = (await dbRows("SELECT to_char(PremiumUntil, 'YYYY-MM-DD') AS d FROM dbo.StudentProfiles WHERE Id = ?", [s.Id]))[0];
+      sendJson(res, 200, { ...x, premiumUntil: pu && pu.d && pu.d >= todayLagos() ? pu.d : '', classTag: (await dbRows('SELECT ClassTag FROM dbo.StudentProfiles WHERE Id = ?', [s.Id]))[0].classtag || '', referrals: Number(c.n) });
       return true;
     }
 
@@ -184,7 +196,7 @@ module.exports = function makeExtras(deps) {
       }
       if (method === 'POST') {
         if (!needAi(res)) return true;
-        if (rateLimited(`plan:${s.Id}`, 5, 3600 * 1000)) { sendJson(res, 429, { error: 'You made several plans this hour. Try again later.' }); return true; }
+        if (rateLimited(`plan:${s.Id}`, await lim(s, 5), 3600 * 1000)) { sendJson(res, 429, { error: 'You made several plans this hour. Try again later.' }); return true; }
         const b = await parseBody(req);
         const hours = Math.min(12, Math.max(1, Number(b.hours) || 3));
         const exams = await dbRows("SELECT Title, to_char(ExamDate, 'YYYY-MM-DD') AS d FROM dbo.StudentSchedule WHERE StudentId = ? AND Kind = 'exam' AND ExamDate >= current_date ORDER BY ExamDate LIMIT 20", [s.Id]);
@@ -263,7 +275,7 @@ module.exports = function makeExtras(deps) {
     if (pathname === '/api/x/cv' && method === 'POST') {
       const s = await studentOnly(req, res); if (!s) return true;
       if (!needAi(res)) return true;
-      if (rateLimited(`cv:${s.Id}`, 6, 3600 * 1000)) { sendJson(res, 429, { error: 'You used the CV helper several times this hour. Try again later.' }); return true; }
+      if (rateLimited(`cv:${s.Id}`, await lim(s, 6), 3600 * 1000)) { sendJson(res, 429, { error: 'You used the CV helper several times this hour. Try again later.' }); return true; }
       const b = await parseBody(req);
       const data = ['name', 'email', 'phone', 'school', 'programme', 'objective', 'education', 'skills', 'experience', 'extra'].map(k => `${k}: ${clip(b[k], 900) || '-'}`).join('\n');
       const kind = b.kind === 'cover' ? 'cover' : 'cv';
@@ -278,7 +290,7 @@ module.exports = function makeExtras(deps) {
     if (pathname === '/api/x/essay' && method === 'POST') {
       const s = await studentOnly(req, res); if (!s) return true;
       if (!needAi(res)) return true;
-      if (rateLimited(`essay:${s.Id}`, 6, 3600 * 1000)) { sendJson(res, 429, { error: 'You used the essay helper several times this hour. Try again later.' }); return true; }
+      if (rateLimited(`essay:${s.Id}`, await lim(s, 6), 3600 * 1000)) { sendJson(res, 429, { error: 'You used the essay helper several times this hour. Try again later.' }); return true; }
       const b = await parseBody(req);
       const text = clip(b.text, 6000);
       if (text.length < 80) { sendJson(res, 400, { error: 'Paste your essay first (at least a few sentences).' }); return true; }
@@ -297,7 +309,7 @@ module.exports = function makeExtras(deps) {
       if (!needAi(res)) return true;
       const key = b.lang + ':' + crypto.createHash('sha1').update(text).digest('hex');
       if (transCache.has(key)) { sendJson(res, 200, { text: transCache.get(key) }); return true; }
-      if (rateLimited(`tr:${s.Id}`, 25, 3600 * 1000)) { sendJson(res, 429, { error: 'You translated many times this hour. Try again later.' }); return true; }
+      if (rateLimited(`tr:${s.Id}`, await lim(s, 25), 3600 * 1000)) { sendJson(res, 429, { error: 'You translated many times this hour. Try again later.' }); return true; }
       const out = await ai(res, `You rewrite news for Nigerian students in simple ${lang}. Keep every date, amount, name, number and website exactly as written. Plain text, no markdown. If you are unsure of a word, keep it in English. Do not add facts.`, text, 1400, 60000); if (out == null) return true;
       if (transCache.size > 300) transCache.clear();
       transCache.set(key, out);
@@ -319,6 +331,8 @@ module.exports = function makeExtras(deps) {
 
     // ============ sponsors ============
     if (pathname === '/api/x/sponsors' && method === 'GET') {
+      const viewer = await requireStudent(req);
+      if (viewer && await isPremium(viewer.Id)) { sendJson(res, 200, []); return true; }
       const rows = await dbRows('SELECT Id, Title, Body, Link FROM dbo.Sponsors WHERE (StartsOn IS NULL OR StartsOn <= current_date) AND (EndsOn IS NULL OR EndsOn >= current_date) ORDER BY Id DESC LIMIT 5');
       if (rows.length) await dbWrite('UPDATE dbo.Sponsors SET Views = Views + 1 WHERE Id = ?', [rows[0].id]);
       sendJson(res, 200, rows.map(r => ({ id: r.id, title: r.title, body: r.body || '', link: r.link || '' })));
@@ -333,11 +347,11 @@ module.exports = function makeExtras(deps) {
     // ============ payments ============
     if (pathname === '/api/x/products' && method === 'GET') {
       const s = await studentOnly(req, res); if (!s) return true;
-      const rows = await dbRows('SELECT Id, Name, Description, AmountNaira FROM dbo.Products WHERE IsActive = true ORDER BY Id');
+      const rows = await dbRows('SELECT Id, Name, Description, AmountNaira, PremiumDays FROM dbo.Products WHERE IsActive = true ORDER BY PremiumDays DESC, Id');
       const mine = await dbRows('SELECT Reference, ProductName, AmountNaira, Status, CreatedAt FROM dbo.Payments WHERE StudentId = ? ORDER BY Id DESC LIMIT 20', [s.Id]);
       sendJson(res, 200, {
         enabled: !!paystackKey(),
-        products: rows.map(r => ({ id: r.id, name: r.name, desc: r.description || '', amount: r.amountnaira })),
+        products: rows.map(r => ({ id: r.id, name: r.name, desc: r.description || '', amount: r.amountnaira, days: r.premiumdays })),
         payments: mine.map(r => ({ ref: r.reference, name: r.productname, amount: r.amountnaira, status: r.status, at: iso(r.createdat) }))
       });
       return true;
@@ -410,7 +424,7 @@ module.exports = function makeExtras(deps) {
           dbRows('SELECT m.Id, m.Name, m.Programme, m.LevelText, m.Bio, m.Phone, m.Status, u.Name AS school FROM dbo.Mentors m LEFT JOIN dbo.Universities u ON u.Id = m.UniversityId ORDER BY (m.Status = \'pending\') DESC, m.Id DESC LIMIT 100'),
           dbRows('SELECT r.Id, r.PostId, r.Reason, r.CreatedAt, (SELECT Headline FROM dbo.NewsArticles n WHERE n.Id::text = r.PostId) AS headline FROM dbo.PostReports r ORDER BY r.Id DESC LIMIT 100'),
           dbRows("SELECT Id, Title, Body, Link, to_char(StartsOn, 'YYYY-MM-DD') AS s, to_char(EndsOn, 'YYYY-MM-DD') AS e, Clicks, Views FROM dbo.Sponsors ORDER BY Id DESC LIMIT 50"),
-          dbRows('SELECT Id, Name, Description, AmountNaira, IsActive FROM dbo.Products ORDER BY Id'),
+          dbRows('SELECT Id, Name, Description, AmountNaira, IsActive, PremiumDays FROM dbo.Products ORDER BY Id'),
           dbRows('SELECT p.Id, p.Reference, p.ProductName, p.AmountNaira, p.Status, p.CreatedAt, s.FullName, s.Phone FROM dbo.Payments p JOIN dbo.StudentProfiles s ON s.Id = p.StudentId ORDER BY p.Id DESC LIMIT 100'),
           dbRows('SELECT Id, Subject, Audience, Sent, Failed, Total, CreatedAt FROM dbo.Broadcasts ORDER BY Id DESC LIMIT 10')
         ]);
@@ -421,7 +435,7 @@ module.exports = function makeExtras(deps) {
           mentors: mentors.map(r => ({ id: r.id, name: r.name, programme: r.programme || '', level: r.leveltext || '', bio: r.bio || '', phone: r.phone || '', status: r.status, school: r.school || '' })),
           reports: reports.map(r => ({ id: r.id, postId: r.postid, reason: r.reason || '', at: iso(r.createdat), headline: r.headline || '' })),
           sponsors: sponsors.map(r => ({ id: r.id, title: r.title, body: r.body || '', link: r.link || '', starts: r.s || '', ends: r.e || '', clicks: r.clicks, views: r.views })),
-          products: products.map(r => ({ id: r.id, name: r.name, desc: r.description || '', amount: r.amountnaira, active: !!r.isactive })),
+          products: products.map(r => ({ id: r.id, name: r.name, desc: r.description || '', amount: r.amountnaira, active: !!r.isactive, days: r.premiumdays })),
           payments: payments.map(r => ({ id: r.id, ref: r.reference, name: r.productname, amount: r.amountnaira, status: r.status, at: iso(r.createdat), student: r.fullname, phone: r.phone || '' })),
           broadcasts: broadcasts.map(r => ({ id: r.id, subject: r.subject, audience: r.audience, sent: r.sent, failed: r.failed, total: r.total, at: iso(r.createdat) })),
           payEnabled: !!paystackKey(), emailEnabled: !!process.env.RESEND_API_KEY
@@ -474,7 +488,7 @@ module.exports = function makeExtras(deps) {
         const b = await parseBody(req);
         const amount = Math.round(Number(b.amount));
         if (clip(b.name, 120).length < 3 || !(amount >= 100) || amount > 10000000) { sendJson(res, 400, { error: 'Give a name and an amount of at least 100 naira.' }); return true; }
-        await dbWrite('INSERT dbo.Products (Name, Description, AmountNaira) VALUES (?, ?, ?)', [clip(b.name, 120), clip(b.desc, 400), amount]);
+        await dbWrite('INSERT dbo.Products (Name, Description, AmountNaira, PremiumDays) VALUES (?, ?, ?, ?)', [clip(b.name, 120), clip(b.desc, 400), amount, Math.min(366, Math.max(0, Math.round(Number(b.days) || 0)))]);
         sendJson(res, 201, { ok: true });
         return true;
       }
@@ -484,7 +498,8 @@ module.exports = function makeExtras(deps) {
         return true;
       }
       if ((m = pathname.match(/^\/api\/admin\/x\/payments\/(\d+)\/paid$/)) && method === 'POST') {
-        await dbWrite("UPDATE dbo.Payments SET Status = 'paid', PaidAt = now() WHERE Id = ?", [Number(m[1])]);
+        const pay = (await dbRows('SELECT Reference FROM dbo.Payments WHERE Id = ?', [Number(m[1])]))[0];
+        if (pay) await markPaid(pay.reference, null);
         sendJson(res, 200, { ok: true });
         return true;
       }
