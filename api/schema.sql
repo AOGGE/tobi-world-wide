@@ -467,3 +467,7 @@ SELECT v.n, v.d, v.a, v.p FROM (VALUES
   ('CV and cover letter writing', 'A professional CV and cover letter written for you.', 3000, 0),
   ('Scholarship application help', 'We review your documents and essay before you apply.', 4000, 0)
 ) AS v(n, d, a, p) WHERE NOT EXISTS (SELECT 1 FROM Products);
+
+-- News drip: publish one queued official item every N minutes (0 = off), rotating between schools
+ALTER TABLE NewsDeskSettings ADD COLUMN IF NOT EXISTS DripMinutes INT NOT NULL DEFAULT 0;
+ALTER TABLE NewsDeskSettings ADD COLUMN IF NOT EXISTS DripLastRun TIMESTAMPTZ;

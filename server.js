@@ -828,12 +828,13 @@ function tutorMessages(history, question) {
 
 async function runNewsDesk() {
   const candidates = await discoverNews();
-  const settings = await dbRows('SELECT AutoPublishOfficial FROM dbo.NewsDeskSettings WHERE Id = 1');
+  const settings = await dbRows('SELECT AutoPublishOfficial, DripMinutes FROM dbo.NewsDeskSettings WHERE Id = 1');
   if (!settings.length) throw new Error('News desk settings are missing; run api/schema.sql first');
-  const counts = { published: 0, pending: 0, skipped: 0 };
+  const dripOn = Number(settings[0].dripminutes) > 0;
+  const counts = { published: 0, pending: 0, queued: 0, skipped: 0 };
   for (const item of candidates) {
     const duplicates = await dbRows(
-      "(SELECT Id FROM dbo.NewsArticles WHERE SourceUrl = ? LIMIT 1) UNION ALL (SELECT Id FROM dbo.PendingNewsArticles WHERE SourceUrl = ? AND Status IN (N'pending', N'published') LIMIT 1)",
+      "(SELECT Id FROM dbo.NewsArticles WHERE SourceUrl = ? LIMIT 1) UNION ALL (SELECT Id FROM dbo.PendingNewsArticles WHERE SourceUrl = ? AND Status IN (N'pending', N'queued', N'published') LIMIT 1)",
       [item.sourceUrl, item.sourceUrl]
     );
     if (duplicates.length) {
@@ -841,7 +842,13 @@ async function runNewsDesk() {
       continue;
     }
     const bodyHtml = articleHtml(item.body);
-    if (item.official && settings[0].AutoPublishOfficial) {
+    if (item.official && settings[0].AutoPublishOfficial && dripOn) {
+      await dbWrite(
+        "INSERT dbo.PendingNewsArticles (Topic, Headline, Summary, BodyHtml, School, SourceUrl, SourceTitle, SourceHost, IsOfficialSource, Status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, true, N'queued')",
+        [item.topic, item.headline, item.summary, bodyHtml, item.school, item.sourceUrl, item.sourceTitle, item.sourceHost]
+      );
+      counts.queued += 1;
+    } else if (item.official && settings[0].AutoPublishOfficial) {
       await dbWrite(
         'INSERT dbo.NewsArticles (Topic, Headline, Summary, BodyHtml, ReadingMinutes, School, SourceUrl, AuthorId, Verified) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, true)',
         [item.topic, item.headline, item.summary, bodyHtml, readingMinutes(item.body), item.school, item.sourceUrl]
@@ -1368,13 +1375,13 @@ function routeTable() {
           'SELECT r.Id, r.Title, r.Body, r.Status, r.SubmittedAt, p.Username AS Author '
           + 'FROM dbo.SubmittedReports r JOIN dbo.Reporters p ON p.Id = r.ReporterId ORDER BY r.SubmittedAt DESC'
         );
-        const settings = await dbRows('SELECT AutoPublishOfficial, AutoSearch, LastAutoRun FROM dbo.NewsDeskSettings WHERE Id = 1');
+        const settings = await dbRows('SELECT AutoPublishOfficial, AutoSearch, LastAutoRun, DripMinutes FROM dbo.NewsDeskSettings WHERE Id = 1');
         const totals = await dbRows('SELECT COUNT(*) AS Total FROM dbo.StudentProfiles');
         if (!settings.length || !totals.length) throw new Error('Database schema is not initialized; run api/schema.sql first');
         sendJson(res, 200, {
           ai: aiEnabled(),
           students: totals[0].Total,
-          settings: { autoPublish: !!settings[0].AutoPublishOfficial, autoSearch: settings[0].autosearch !== false, lastAutoRun: settings[0].lastautorun || null },
+          settings: { autoPublish: !!settings[0].AutoPublishOfficial, autoSearch: settings[0].autosearch !== false, lastAutoRun: settings[0].lastautorun || null, dripMinutes: Number(settings[0].dripminutes) || 0, queued: Number((await dbRows("SELECT count(*) AS n FROM dbo.PendingNewsArticles WHERE Status = N'queued'"))[0].n) },
           pendingNews: pending.map(row => ({ id: row.Id, h: row.Headline, src: row.SourceUrl, host: row.SourceHost, official: !!row.IsOfficialSource, created: row.CreatedAt })),
           invites: inviteRows.map(row => ({ code: row.Code, usedBy: row.UsedBy || '' })),
           staff: reporters.map(row => ({ name: row.FullName, username: row.Username, email: row.Email, created: row.CreatedAt })),
@@ -1390,7 +1397,7 @@ function routeTable() {
           return;
         }
         const body = await parseBody(req);
-        if (typeof body.autoPublish !== 'boolean' && typeof body.autoSearch !== 'boolean') {
+        if (typeof body.autoPublish !== 'boolean' && typeof body.autoSearch !== 'boolean' && !Number.isInteger(body.dripMinutes)) {
           sendJson(res, 400, { error: 'invalid_setting' });
           return;
         }
@@ -1400,7 +1407,11 @@ function routeTable() {
         if (typeof body.autoSearch === 'boolean') {
           await dbWrite('UPDATE dbo.NewsDeskSettings SET AutoSearch = ?, UpdatedAt = SYSUTCDATETIME() WHERE Id = 1', [body.autoSearch]);
         }
-        sendJson(res, 200, { autoPublish: body.autoPublish, autoSearch: body.autoSearch });
+        if (Number.isInteger(body.dripMinutes)) {
+          const mins = [0, 1, 2, 5, 10, 15, 30, 60].includes(body.dripMinutes) ? body.dripMinutes : 0;
+          await dbWrite('UPDATE dbo.NewsDeskSettings SET DripMinutes = ?, UpdatedAt = SYSUTCDATETIME() WHERE Id = 1', [mins]);
+        }
+        sendJson(res, 200, { autoPublish: body.autoPublish, autoSearch: body.autoSearch, dripMinutes: body.dripMinutes });
         return;
       }
 

@@ -810,6 +810,7 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
 <div class="admin-actions"><button class="btn" id="newsRun" type="button">Find verified news now</button>
 <label style="font-size:14px"><input type="checkbox" id="autoPub"> Auto-publish items from official sources (others wait for your approval)</label><span class="msg" id="newsMsg"></span></div>
 <label style="font-size:14px;display:block;margin-top:6px"><input type="checkbox" id="autoSearch"> Search for news by itself once a day <span id="autoRunInfo" style="color:var(--muted)"></span></label>
+<label style="font-size:14px;display:block;margin-top:6px">Post one official news item automatically every <select id="dripMins" aria-label="News drip"><option value="0">Off</option><option value="1">1 minute</option><option value="2">2 minutes</option><option value="5">5 minutes</option><option value="10">10 minutes</option><option value="15">15 minutes</option><option value="30">30 minutes</option><option value="60">1 hour</option></select> <span id="dripInfo" style="color:var(--muted)"></span></label>
 <div id="pendNews" style="margin-top:12px;display:grid;gap:8px"></div>
 <h3 style="margin-top:24px">Reporters</h3><p>Generate an invite code and send the link to a reporter.</p>
 <div class="admin-actions"><button class="btn sm" id="genInv" type="button">Generate invite code</button><span class="msg ok" id="invMsg"></span></div>
@@ -2506,7 +2507,7 @@ async function drawStaff(){
   var j=await call('GET','/api/admin/staff');if(j.error)return;$('#staffPanel').hidden=false;
   $('#aiInfo').textContent=j.ai?'AI search verifies that sources open and match each headline. Official allowlisted sources may auto-publish; other stories wait for review. Students registered: '+j.students+'.':'AI is OFF. Add GEMINI_API_KEY on the server to enable verified news search.';
   $('#autoPub').checked=!!j.settings.autoPublish;
-  $('#autoSearch').checked=j.settings.autoSearch!==false;$('#autoRunInfo').textContent=j.settings.lastAutoRun?'(last ran '+fmtD(j.settings.lastAutoRun)+')':'(has not run yet)';
+  $('#dripMins').value=String(j.settings.dripMinutes||0);$('#dripInfo').textContent=j.settings.dripMinutes?'('+j.settings.queued+' waiting in the queue)':'';$('#autoSearch').checked=j.settings.autoSearch!==false;$('#autoRunInfo').textContent=j.settings.lastAutoRun?'(last ran '+fmtD(j.settings.lastAutoRun)+')':'(has not run yet)';
   var local=Store.mode!=='api';$('#newsRun').parentNode.hidden=local;$('#aiInfo').parentNode.querySelector('h3').hidden=local;$('#aiInfo').hidden=local;$('#pendNews').hidden=local;
   $('#newsRun').disabled=!j.ai;
   $('#pendNews').innerHTML=j.pendingNews.map(function(p){return row(esc(p.h),(p.official?'Verified official source':'Review source')+' · '+esc(p.host)+' · <a href="'+esc(p.src)+'" target="_blank" rel="noopener">open source</a>',bt('pn-ok',p.id,'Publish')+bt('pn-no',p.id,'Reject','danger'))}).join('');
@@ -2813,6 +2814,11 @@ $('#cbList').addEventListener('click',async function(e){
   var b=e.target.closest('button[data-act]');if(!b)return;
   if(!b.dataset.sure){b.dataset.sure='1';b.textContent='Click again to delete';return}
   await call('DELETE','/api/admin/cbt/'+b.dataset.id);drawCbtAdmin();
+});
+$('#dripMins').addEventListener('change',async function(){
+  var n=Number(this.value),r=await call('POST','/api/admin/settings',{dripMinutes:n});
+  if(r.error)say($('#newsMsg'),r.error,false);else say($('#newsMsg'),n?'One queued official news item will be posted every '+n+' minute'+(n>1?'s':'')+', moving between schools. Turn on auto-publish and automatic search to keep the queue filled.':'News drip is off.',true);
+  drawStaff&&drawStaff();
 });
 $('#autoSearch').addEventListener('change',async function(){
   var on=this.checked,r=await call('POST','/api/admin/settings',{autoSearch:on});

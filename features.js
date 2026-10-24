@@ -358,8 +358,9 @@ module.exports = function makeFeatures(deps) {
     const autoNews = async () => {
       try {
         if (!aiEnabled() || process.env.TWW_AUTO_NEWS === 'off') return;
+        // with the drip on, look again every 3 hours (only when the queue is running low); otherwise once a day
         const due = await dbRows(
-          "SELECT 1 AS due FROM dbo.NewsDeskSettings WHERE Id = 1 AND AutoSearch = true AND (LastAutoRun IS NULL OR LastAutoRun < now() - interval '22 hours')"
+          `SELECT 1 AS due FROM dbo.NewsDeskSettings WHERE Id = 1 AND AutoSearch = true AND (LastAutoRun IS NULL OR LastAutoRun < now() - (CASE WHEN DripMinutes > 0 AND (SELECT count(*) FROM dbo.PendingNewsArticles WHERE Status = 'queued') < 3 THEN interval '3 hours' ELSE interval '22 hours' END))`
         );
         if (!due.length) return;
         // claim the slot first so two instances do not both run
@@ -376,8 +377,33 @@ module.exports = function makeFeatures(deps) {
         log.error('Scheduler error:', error.message);
       }
     };
+    // News drip: publish one queued official item every DripMinutes, preferring a different school from the last post
+    const drip = async () => {
+      try {
+        const claimed = await dbRows(
+          "UPDATE dbo.NewsDeskSettings SET DripLastRun = now() WHERE Id = 1 AND DripMinutes > 0 AND (DripLastRun IS NULL OR DripLastRun <= now() - (DripMinutes * interval '1 minute') + interval '5 seconds') RETURNING Id"
+        );
+        if (!claimed.length) return;
+        const last = (await dbRows('SELECT School FROM dbo.NewsArticles ORDER BY PublishedAt DESC LIMIT 1'))[0];
+        const lastSchool = last ? last.School || last.school || '' : '';
+        const item = (await dbRows(
+          "SELECT Id, Topic, Headline, Summary, BodyHtml, School, SourceUrl FROM dbo.PendingNewsArticles WHERE Status = 'queued' ORDER BY (COALESCE(School, '') = ?) , Id LIMIT 1", [lastSchool]
+        ))[0];
+        if (!item) return;
+        const mins = Math.max(1, Math.ceil(String(item.bodyhtml || '').replace(/<[^>]+>/g, ' ').split(/\s+/).length / 200));
+        const art = await dbWrite(
+          'INSERT dbo.NewsArticles (Topic, Headline, Summary, BodyHtml, ReadingMinutes, School, SourceUrl, AuthorId, Verified) OUTPUT INSERTED.Id VALUES (?, ?, ?, ?, ?, ?, ?, NULL, true)',
+          [item.topic, item.headline, item.summary, item.bodyhtml, mins, item.school, item.sourceurl]
+        );
+        await dbWrite("UPDATE dbo.PendingNewsArticles SET Status = 'published', ReviewedAt = now(), PublishedArticleId = ? WHERE Id = ?", [art.Id, item.id]);
+        log.log(`News drip published: ${item.headline} (${item.school || 'All schools'})`);
+      } catch (error) {
+        log.error('News drip error:', error.message);
+      }
+    };
     setTimeout(autoNews, 2 * 60 * 1000).unref();
     setInterval(autoNews, 30 * 60 * 1000).unref();
+    setInterval(drip, 30 * 1000).unref();
   }
 
   return { handle, startScheduler, afterRegister: extras.afterRegister };
