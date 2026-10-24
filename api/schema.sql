@@ -471,3 +471,7 @@ SELECT v.n, v.d, v.a, v.p FROM (VALUES
 -- News drip: publish one queued official item every N minutes (0 = off), rotating between schools
 ALTER TABLE NewsDeskSettings ADD COLUMN IF NOT EXISTS DripMinutes INT NOT NULL DEFAULT 0;
 ALTER TABLE NewsDeskSettings ADD COLUMN IF NOT EXISTS DripLastRun TIMESTAMPTZ;
+
+-- One-time default: switch the news drip on at 15 minutes (official sources only) the first time this runs.
+UPDATE NewsDeskSettings SET DripMinutes = 15, AutoPublishOfficial = TRUE, AutoSearch = TRUE
+WHERE Id = 1 AND DripMinutes = 0 AND DripLastRun IS NULL;
