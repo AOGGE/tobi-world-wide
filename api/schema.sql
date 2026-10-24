@@ -458,3 +458,12 @@ CREATE TABLE IF NOT EXISTS CafeAnswers (
   CreatedAt TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS IX_CafeAnswers_Q ON CafeAnswers (QuestionId);
+
+-- Starter services (only when no service exists yet). Change or delete them in Admin > Owner tools > Payments.
+INSERT INTO Products (Name, Description, AmountNaira, PremiumDays)
+SELECT v.n, v.d, v.a, v.p FROM (VALUES
+  ('Premium (30 days)', 'No adverts and 3 times higher limits on the AI tutor, study planner, CV and essay helpers.', 1500, 30),
+  ('Admission processing help', 'We guide you step by step through your admission process.', 5000, 0),
+  ('CV and cover letter writing', 'A professional CV and cover letter written for you.', 3000, 0),
+  ('Scholarship application help', 'We review your documents and essay before you apply.', 4000, 0)
+) AS v(n, d, a, p) WHERE NOT EXISTS (SELECT 1 FROM Products);
