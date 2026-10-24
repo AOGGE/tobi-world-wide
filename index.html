@@ -6,6 +6,9 @@
 .breath{display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin:8px 0}
 .bcircle{width:110px;height:110px;border-radius:50%;background:var(--soft);border:2px solid var(--brand);display:grid;place-items:center;text-align:center;font-weight:700;font-size:14px;transition:transform 4s ease-in-out}
 .bcircle.in{transform:scale(1.25)}.bcircle.out{transform:scale(.85);transition-duration:6s}
+.xmodal{position:fixed;inset:0;background:rgba(14,11,29,.6);display:grid;place-items:center;padding:16px;z-index:300}
+.xbox{background:var(--surface);color:var(--ink);border-radius:20px;max-width:460px;width:100%;padding:24px;display:grid;gap:12px;box-shadow:var(--shadow);position:relative;max-height:90vh;overflow:auto}
+.xbox .xclose{position:absolute;top:12px;right:12px}
 </style></head><body>
 <title>Tobi World Wide Educational Consult</title>
 <link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#3A2873"><link rel="apple-touch-icon" href="/icon-192.png">
@@ -3097,7 +3100,7 @@ document.addEventListener('click',function(e){var b=e.target.closest('[data-copy
 
 async function loadTools(){
   var on=xOn();$('#xtools').hidden=!on;$('#xtoolsNav').hidden=!on;if(!on)return;
-  loadSponsors();loadOffers();xTab('class');
+  loadSponsors();loadOffers().then(showWelcomeOffer);xTab('class');
   try{var q=new URLSearchParams(location.search).get('paid');if(q){history.replaceState(null,'',location.pathname);var v=await call('GET','/api/x/pay/verify?ref='+encodeURIComponent(q));toast(v&&v.status==='paid'?'Payment received. Thank you!':'We have not received that payment yet. If you paid, wait a minute and open Pay for a service.')}}catch(e){}
 }
 $('#tTabs').addEventListener('click',function(e){var b=e.target.closest('.ctab');if(!b)return;xTab(b.dataset.tab)});
@@ -3392,6 +3395,38 @@ $('#xPanel').addEventListener('click',async function(e){
 });
 
 loadOffers();
+
+/* ===================== welcome offer + upgrade prompt ===================== */
+var XM=null;
+function xModal(html){
+  if(XM)XM.remove();XM=document.createElement('div');XM.className='xmodal';
+  XM.innerHTML='<div class="xbox" role="dialog" aria-modal="true"><button class="icon-btn xclose" type="button" aria-label="Close">✕</button>'+html+'</div>';
+  document.body.appendChild(XM);
+  XM.addEventListener('click',async function(e){
+    if(e.target===XM||e.target.closest('.xclose')){XM.remove();XM=null;return}
+    var b=e.target.closest('[data-obuy]');
+    if(b){b.disabled=true;var p=await call('POST','/api/x/pay',{productId:Number(b.dataset.obuy)});b.disabled=false;if(p.error){var m=XM.querySelector('.xerr');if(m)m.textContent=p.error;return}location.href=p.url;return}
+    if(e.target.closest('[data-ogo]')){XM.remove();XM=null;var s=$('#xoffers');if(s)s.scrollIntoView({behavior:'smooth'})}
+  });
+}
+function planCard(){
+  var plan=OFFERS.filter(function(x){return x.premiumDays>0})[0];if(!plan)return '';
+  return '<div class="ccard"><span class="pill">Premium</span><b>'+esc(plan.name)+' · '+naira(plan.amount)+'</b><p>No adverts. 3 times more AI tutor, planner, CV and essay help.</p><div class="row2"><button class="btn sm" type="button" data-obuy="'+plan.id+'">Get Premium</button></div><small class="xerr" style="color:var(--err)"></small></div>';
+}
+async function showWelcomeOffer(){
+  try{var d=new Date().toISOString().slice(0,10);if(localStorage.getItem('tww_offer_day')===d)return;localStorage.setItem('tww_offer_day',d)}catch(e){}
+  var me=await call('GET','/api/x/me');if(!me||me.error||me.premiumUntil)return;
+  if(!OFFERS.length)await loadOffers();
+  var svc=OFFERS.filter(function(x){return !x.premiumDays}).slice(0,3);
+  if(!planCard()&&!svc.length)return;
+  xModal('<h3>Welcome back, '+esc(((APP.user&&APP.user.name)||'').split(/\s+/)[0])+' 👋</h3><p>Get more from Tobi World Wide:</p>'+planCard()+(svc.length?'<div class="ccard"><b>Need real help?</b>'+svc.map(function(p){return '<small>'+esc(p.name)+' · '+naira(p.amount)+'</small>'}).join('')+'<div class="row2"><button class="btn ghost sm" type="button" data-ogo>See all services</button></div></div>':''));
+}
+async function showUpgrade(){
+  if(!xOn())return;var me=await call('GET','/api/x/me');if(me&&me.premiumUntil)return;
+  if(!OFFERS.length)await loadOffers();
+  xModal('<h3>You have reached the free limit</h3><p>Free accounts have an hourly limit on AI help. Premium gives you 3 times more, and no adverts. Or try again in a while.</p>'+(planCard()||'<p class="note-small">Premium is coming soon.</p>'));
+}
+var _nc=netCall;netCall=async function(m,u,b){var r=await _nc(m,u,b);if(r&&r.error&&/this hour|try again later|too many|free daily limit/i.test(r.error)&&/^\/api\/(x\/(planner|cv|essay|translate)|tutor)/.test(u))showUpgrade();return r};
 
 /* ---- start ---- */
 (async function boot(){
