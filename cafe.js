@@ -41,6 +41,11 @@ module.exports = function makeCafe(deps) {
       sendJson(res, 200, rows.map(r => ({ id: r.id, name: r.name, desc: r.description || '', amount: r.amountnaira, premiumDays: r.premiumdays })));
       return true;
     }
+    if (pathname === '/api/x/public/contact' && method === 'GET') {
+      const wa = String(process.env.TWW_OWNER_WHATSAPP || '').replace(/\D/g, '');
+      sendJson(res, 200, { whatsapp: wa });
+      return true;
+    }
     if (pathname === '/api/x/public/lead' && method === 'POST') {
       const b = await parseBody(req);
       const kind = LEAD_KINDS.includes(b.kind) ? b.kind : 'service';

@@ -687,7 +687,7 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
         <p class="note-small" style="text-align:left" id="xaPayNote"></p>
         <form id="xaProductForm" class="form-grid" autocomplete="off">
           <div class="field"><label for="apName">Service name</label><input id="apName" type="text" maxlength="120" placeholder="e.g. Admission processing"></div>
-          <div class="field"><label for="apAmt">Price (naira)</label><input id="apAmt" type="number" min="100"></div>
+          <div class="field"><label for="apAmt">Price in naira (leave empty for price on request)</label><input id="apAmt" type="number" min="0"></div>
           <div class="field"><label for="apDays">Premium days (leave empty for a normal service)</label><input id="apDays" type="number" min="0" max="366" placeholder="e.g. 30"></div>
           <div class="field full"><label for="apDesc">What the student gets</label><input id="apDesc" type="text" maxlength="400"></div>
           <div class="field" style="justify-content:flex-end"><button class="btn" type="submit">Add service</button></div>
@@ -1445,7 +1445,7 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
           <div class="field" style="justify-content:flex-end"><button class="btn" type="submit">Send request</button></div>
         </form>
         <p class="msg" id="oMsgOut"></p>
-        <p class="note-small" style="text-align:left">Official fees (school, JAMB, NELFUND) are always paid on the official portals, never to us. We charge only for our own help. <a href="/cafe">Cybercafé partner login</a></p>
+        <p class="note-small" style="text-align:left">Official fees are paid on the official school, JAMB or NELFUND portals. When we pay on your behalf, you always get the official receipt. Never pay anyone who cannot show you a receipt. <a href="/cafe">Cybercafé partner login</a></p>
       </div>
     </div>
   </section>
@@ -3100,6 +3100,9 @@ var OFFICIAL_LINKS=[
   ['UNILORIN portal','Student portal of the University of Ilorin.','https://portal.unilorin.edu.ng']
 ];
 function naira(n){return '₦'+Number(n||0).toLocaleString('en-NG')}
+function price(n){return Number(n)>0?naira(n):'Price on request'}
+var OWNER_WA='';
+function waReq(name){return OWNER_WA?'<a class="btn wa sm" target="_blank" rel="noopener" href="https://wa.me/'+OWNER_WA+'?text='+encodeURIComponent('Hello, I want this service: '+name)+'">WhatsApp us</a>':''}
 function xOn(){return apiOn()&&!APP.admin}
 function xCopy(id,btn){var t=$('#'+id).textContent;try{navigator.clipboard.writeText(t);if(btn){var o=btn.textContent;btn.textContent='Copied';setTimeout(function(){btn.textContent=o},1500)}}catch(e){toast('Select the text and copy it.')}}
 document.addEventListener('click',function(e){var b=e.target.closest('[data-copy]');if(b)xCopy(b.dataset.copy,b)});
@@ -3240,7 +3243,7 @@ $('#xRefCopy').addEventListener('click',function(){xCopy('xRefLink',this)});
 async function xLoadPay(){
   var r=await call('GET','/api/x/products');if(!r||r.error)return;
   $('#xPayNote').textContent=r.enabled?'Pay safely with card or bank transfer through Paystack. Your receipt is saved below.':'Online payment is not switched on yet. Use Request help to arrange it with the admin.';
-  $('#xProducts').innerHTML=r.products.length?r.products.map(function(p){return '<div class="ccard"><b>'+esc(p.name)+'</b><small>'+naira(p.amount)+'</small>'+(p.desc?'<p>'+esc(p.desc)+'</p>':'')+'<div class="row2">'+(r.enabled?'<button type="button" class="btn sm" data-pay="'+p.id+'">Pay '+naira(p.amount)+'</button>':'<a class="btn sm" href="#help">Request this in Help</a>')+'</div></div>'}).join(''):'<p class="note-small" style="text-align:left">No paid services listed yet.</p>';
+  $('#xProducts').innerHTML=r.products.length?r.products.map(function(p){return '<div class="ccard"><b>'+esc(p.name)+'</b><small>'+price(p.amount)+'</small>'+(p.desc?'<p>'+esc(p.desc)+'</p>':'')+'<div class="row2">'+(r.enabled&&p.amount>0?'<button type="button" class="btn sm" data-pay="'+p.id+'">Pay '+naira(p.amount)+'</button>':'<a class="btn sm" href="#help">Request this in Help</a>'+waReq(p.name))+'</div></div>'}).join(''):'<p class="note-small" style="text-align:left">No paid services listed yet.</p>';
   $('#xPayments').innerHTML=r.payments.length?r.payments.map(function(p){return row(esc(p.name)+' · '+naira(p.amount),esc(fmtDate(String(p.at).slice(0,10)))+' · '+(p.status==='paid'?'Paid':'Not completed'),'')}).join(''):'<p class="note-small" style="text-align:left">No payments yet.</p>';
 }
 $('#xProducts').addEventListener('click',async function(e){var b=e.target.closest('[data-pay]');if(!b)return;b.disabled=true;var r=await call('POST','/api/x/pay',{productId:Number(b.dataset.pay)});b.disabled=false;if(r.error)return say($('#xPayMsg'),r.error);location.href=r.url});
@@ -3280,7 +3283,7 @@ async function drawXAdmin(){
   $('#xaReports').innerHTML=j.reports.map(function(r){return row(esc(r.headline||('Post '+r.postId)),esc(r.reason||'No reason given')+' · '+esc(String(r.at).slice(0,10)),bt('xa-del-reports',r.id,'Dismiss')+(r.headline?bt('xa-unver',r.postId,'Remove verified badge'):''))}).join('')||'<p class="note-small" style="text-align:left">No reported posts.</p>';
   $('#xaSponsors').innerHTML=j.sponsors.map(function(s){return row(esc(s.title),esc(s.body)+' · '+s.views+' views · '+s.clicks+' clicks'+(s.starts?' · from '+esc(s.starts):'')+(s.ends?' · to '+esc(s.ends):''),bt('xa-del-sponsors',s.id,'Delete','danger'))}).join('')||'<p class="note-small" style="text-align:left">No adverts yet.</p>';
   $('#xaPayNote').textContent=j.payEnabled?'Paystack is switched on. Add the webhook URL https://YOUR-SITE/api/x/pay/webhook in your Paystack dashboard so payments confirm automatically.':'Paystack is not switched on. Add PAYSTACK_SECRET_KEY in Render to accept online payments. Until then students are told to contact you on WhatsApp.';
-  $('#xaProducts').innerHTML=j.products.map(function(p){return row(esc(p.name)+' · '+naira(p.amount)+(p.days?' <span class="pill">Premium '+p.days+' days</span>':''),esc(p.desc),bt('xa-del-products',p.id,'Delete','danger'))}).join('')||'<p class="note-small" style="text-align:left">No services yet.</p>';
+  $('#xaProducts').innerHTML=j.products.map(function(p){return row(esc(p.name)+' · '+price(p.amount)+(p.days?' <span class="pill">Premium '+p.days+' days</span>':''),esc(p.desc),bt('xa-del-products',p.id,'Delete','danger'))}).join('')||'<p class="note-small" style="text-align:left">No services yet.</p>';
   $('#xaPayments').innerHTML=j.payments.map(function(p){return row(esc(p.name)+' · '+naira(p.amount)+(p.status==='paid'?' <span class="pill">Paid</span>':' <span class="pill new">Not paid</span>'),esc(p.student)+' · '+esc(String(p.at).slice(0,10))+' · '+esc(p.ref),(p.status!=='paid'?bt('xa-paid',p.id,'Mark paid'):'')+(p.phone?'<a class="btn wa sm" target="_blank" rel="noopener" href="'+esc(waLink(p.phone,'Hello '+p.student.split(' ')[0]+', about your payment for '+p.name))+'">WhatsApp</a>':''))}).join('')||'<p class="note-small" style="text-align:left">No payments yet.</p>';
   $('#abNote').textContent=j.emailEnabled?'Emails go out in the background, about 4 per second.':'Email is not switched on. Add RESEND_API_KEY (and RESEND_FROM with your own domain) in Render. You can still use the WhatsApp list.';
   $('#xaBroadcasts').innerHTML=j.broadcasts.map(function(b){return row(esc(b.subject),esc(b.audience)+' · sent '+b.sent+' of '+b.total+(b.failed?' · '+b.failed+' failed':'')+' · '+esc(String(b.at).slice(0,10)),'')}).join('')||'<p class="note-small" style="text-align:left">Nothing sent yet.</p>';
@@ -3316,11 +3319,12 @@ $('#xPanel').addEventListener('click',async function(e){
 var CAT_LABEL={printing:'Printing',jamb:'JAMB',caps:'CAPS / admission',nin:'NIN',scanning:'Scanning',registration:'Registration',other:'Other'};
 var OFFERS=[];
 async function loadOffers(){
+  var ct=await netCall('GET','/api/x/public/contact');if(ct&&ct.whatsapp)OWNER_WA=ct.whatsapp;
   var l=await netCall('GET','/api/x/public/services');if(!Array.isArray(l))return;OFFERS=l;
   var svc=l.filter(function(x){return !x.premiumDays}),plans=l.filter(function(x){return x.premiumDays>0});
-  $('#oSvc').innerHTML=svc.length?svc.map(function(p){return '<div class="ccard"><b>'+esc(p.name)+'</b><small>'+naira(p.amount)+'</small>'+(p.desc?'<p>'+esc(p.desc)+'</p>':'')+'<div class="row2"><button class="btn sm" type="button" data-oreq="'+p.id+'">Request this</button></div></div>'}).join(''):'<p class="note-small" style="text-align:left">Services will be listed here soon. Send a request below.</p>';
+  $('#oSvc').innerHTML=svc.length?svc.map(function(p){return '<div class="ccard"><b>'+esc(p.name)+'</b><small>'+price(p.amount)+'</small>'+(p.desc?'<p>'+esc(p.desc)+'</p>':'')+'<div class="row2"><button class="btn sm" type="button" data-oreq="'+p.id+'">Request this</button>'+waReq(p.name)+'</div></div>'}).join(''):'<p class="note-small" style="text-align:left">Services will be listed here soon. Send a request below.</p>';
   $('#oPlans').innerHTML=plans.length?plans.map(function(p){return '<div class="ccard"><span class="pill">Premium</span><b>'+esc(p.name)+'</b><small>'+naira(p.amount)+' for '+p.premiumDays+' days</small><p>'+(p.desc?esc(p.desc):'No adverts and higher limits on the AI tutor, planner, CV and essay helpers.')+'</p><div class="row2">'+(xOn()?'<button class="btn sm" type="button" data-obuy="'+p.id+'">Get Premium</button>':'<a class="btn sm" href="#" data-osign>Sign up to get Premium</a>')+'</div></div>'}).join(''):'<p class="note-small" style="text-align:left">Premium is coming soon.</p>';
-  $('#oProduct').innerHTML='<option value="">Not sure yet</option>'+svc.map(function(p){return '<option value="'+p.id+'">'+esc(p.name)+' ('+naira(p.amount)+')</option>'}).join('');
+  $('#oProduct').innerHTML='<option value="">Not sure yet</option>'+svc.map(function(p){return '<option value="'+p.id+'">'+esc(p.name)+(p.amount>0?' ('+naira(p.amount)+')':'')+'</option>'}).join('');
 }
 $('#xoffers').addEventListener('click',async function(e){
   var r=e.target.closest('[data-oreq]');
@@ -3425,7 +3429,7 @@ async function showWelcomeOffer(){
   if(!OFFERS.length)await loadOffers();
   var svc=OFFERS.filter(function(x){return !x.premiumDays}).slice(0,3);
   if(!planCard()&&!svc.length)return;
-  xModal('<h3>Welcome back, '+esc(((APP.user&&APP.user.name)||'').split(/\s+/)[0])+' 👋</h3><p>Get more from Tobi World Wide:</p>'+planCard()+(svc.length?'<div class="ccard"><b>Need real help?</b>'+svc.map(function(p){return '<small>'+esc(p.name)+' · '+naira(p.amount)+'</small>'}).join('')+'<div class="row2"><button class="btn ghost sm" type="button" data-ogo>See all services</button></div></div>':''));
+  xModal('<h3>Welcome back, '+esc(((APP.user&&APP.user.name)||'').split(/\s+/)[0])+' 👋</h3><p>Get more from Tobi World Wide:</p>'+planCard()+(svc.length?'<div class="ccard"><b>Need real help?</b>'+svc.map(function(p){return '<small>'+esc(p.name)+(p.amount>0?' · '+price(p.amount):'')+'</small>'}).join('')+'<div class="row2"><button class="btn ghost sm" type="button" data-ogo>See all services</button></div></div>':''));
 }
 async function showUpgrade(){
   if(!xOn())return;var me=await call('GET','/api/x/me');if(me&&me.premiumUntil)return;

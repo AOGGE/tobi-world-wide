@@ -475,3 +475,26 @@ ALTER TABLE NewsDeskSettings ADD COLUMN IF NOT EXISTS DripLastRun TIMESTAMPTZ;
 -- One-time default: switch the news drip on at 15 minutes (official sources only) the first time this runs.
 UPDATE NewsDeskSettings SET DripMinutes = 15, AutoPublishOfficial = TRUE, AutoSearch = TRUE
 WHERE Id = 1 AND DripMinutes = 0 AND DripLastRun IS NULL;
+
+-- One-time: replace the starter services with the real service list (prices on request, amount 0).
+CREATE TABLE IF NOT EXISTS SchemaFlags (Name VARCHAR(60) PRIMARY KEY);
+WITH f AS (INSERT INTO SchemaFlags (Name) VALUES ('services_v2') ON CONFLICT DO NOTHING RETURNING 1),
+d AS (DELETE FROM Products WHERE Name IN ('Admission processing help', 'CV and cover letter writing', 'Scholarship application help')
+      AND EXISTS (SELECT 1 FROM f) AND NOT EXISTS (SELECT 1 FROM Payments pay WHERE pay.ProductId = Products.Id) RETURNING 1)
+INSERT INTO Products (Name, Description, AmountNaira, PremiumDays)
+SELECT v.n, v.d, 0, 0 FROM (VALUES
+  ('Post UTME and screening registration', 'For all schools. We register you correctly and on time.'),
+  ('Admission counselling and guidance', 'Advice on courses, schools, cut-off marks and your next steps.'),
+  ('Printing of original JAMB result', 'Your official JAMB result printed and delivered.'),
+  ('Printing of admission letters', 'Your admission letter printed from the portal.'),
+  ('All institutions updates', 'Get the latest admission and school updates.'),
+  ('WAEC scratch card', 'Get your WAEC result checker scratch card.'),
+  ('NECO token', 'Get your NECO result checking token.'),
+  ('Uploading of O-level result', 'We upload your O-level result on the school or JAMB portal.'),
+  ('Combining of O-level results', 'We combine your O-level results on the portal for you.'),
+  ('Uploading of documents for online clearance', 'We upload your documents for online clearance.'),
+  ('Payment of acceptance fees', 'We pay your acceptance fee on the official portal and give you the receipt.'),
+  ('Payment of school fees', 'We pay your school fees on the official portal and give you the receipt.'),
+  ('Printing of documents on school portal', 'Any document you need printed from your school portal.'),
+  ('Post UTME past questions for all schools', 'Past questions to practise before your screening.')
+) AS v(n, d) WHERE EXISTS (SELECT 1 FROM f);

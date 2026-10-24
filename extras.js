@@ -362,6 +362,7 @@ module.exports = function makeExtras(deps) {
       const b = await parseBody(req);
       const p = (await dbRows('SELECT Id, Name, AmountNaira FROM dbo.Products WHERE Id = ? AND IsActive = true', [Number(b.productId) || 0]))[0];
       if (!p) { sendJson(res, 404, { error: 'That service is not available.' }); return true; }
+      if (!p.amountnaira) { sendJson(res, 400, { error: 'This service has no online price. Send a request instead.' }); return true; }
       if (rateLimited(`pay:${s.Id}`, 10, 3600 * 1000)) { sendJson(res, 429, { error: 'Too many payment attempts. Try again later.' }); return true; }
       const ref = `TWW-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
       const origin = process.env.RENDER_EXTERNAL_URL || `https://${req.headers.host}`;
@@ -487,7 +488,7 @@ module.exports = function makeExtras(deps) {
       if (pathname === '/api/admin/x/products' && method === 'POST') {
         const b = await parseBody(req);
         const amount = Math.round(Number(b.amount));
-        if (clip(b.name, 120).length < 3 || !(amount >= 100) || amount > 10000000) { sendJson(res, 400, { error: 'Give a name and an amount of at least 100 naira.' }); return true; }
+        if (clip(b.name, 120).length < 3 || !(amount === 0 || amount >= 100) || !(amount <= 10000000)) { sendJson(res, 400, { error: 'Give a name and a price of at least 100 naira, or 0 for price on request.' }); return true; }
         await dbWrite('INSERT dbo.Products (Name, Description, AmountNaira, PremiumDays) VALUES (?, ?, ?, ?)', [clip(b.name, 120), clip(b.desc, 400), amount, Math.min(366, Math.max(0, Math.round(Number(b.days) || 0)))]);
         sendJson(res, 201, { ok: true });
         return true;
