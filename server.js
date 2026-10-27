@@ -232,6 +232,17 @@ async function seedAdmin() {
   console.log('Created portal admin:', username);
 }
 
+async function seedCafe() {
+  // TWW_SEED_CAFE="Cafe name|login|password" creates that cafe once (login can be a username or an email).
+  const parts = String(process.env.TWW_SEED_CAFE || '').split('|').map(x => x.trim());
+  if (parts.length < 3 || parts[0].length < 3 || !parts[1] || parts[2].length < 8) return;
+  const login = parts[1].toLowerCase();
+  const ex = await pool.query('SELECT 1 FROM Cafes WHERE lower(Email) = $1', [login]);
+  if (ex.rowCount) return;
+  await pool.query('INSERT INTO Cafes (Name, Email, PasswordHash) VALUES ($1, $2, $3)', [parts[0].slice(0, 120), login.slice(0, 120), hashPassword(parts[2])]);
+  console.log('Created cafe login:', login);
+}
+
 function connectDatabase() {
   if (!readyPromise) {
     const config = poolConfig();
@@ -240,6 +251,7 @@ function connectDatabase() {
     readyPromise = (async () => {
       await pool.query(fs.readFileSync(path.join(__dirname, 'api', 'schema.sql'), 'utf8'));
       await seedAdmin();
+      await seedCafe();
       return pool;
     })().catch(error => {
       readyPromise = undefined;
